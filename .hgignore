@@ -1,0 +1,8 @@
+syntax: glob
+
+logs
+target
+
+.idea
+.idea_modules
+*.iml
