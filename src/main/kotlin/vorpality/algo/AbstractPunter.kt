@@ -4,6 +4,7 @@ import grph.in_memory.InMemoryGrph
 import grph.properties.NumericalProperty
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import toools.gui.TrueColors24Map
 import vorpality.protocol.SetupData
 
 abstract class AbstractPunter : Punter {
@@ -13,11 +14,13 @@ abstract class AbstractPunter : Punter {
     protected class State(data: SetupData) {
         val graph = InMemoryGrph()
 
-        val EMPTY_COLOR = -1
+        val EMPTY_COLOR = 16777215
         val MINE_COLOR = 1
 
         val ownerColoring = NumericalProperty("owner", 32, EMPTY_COLOR.toLong())
+                .apply { palette = TrueColors24Map() }
         val mineColoring = NumericalProperty("mines", 32, EMPTY_COLOR.toLong())
+                .apply { palette = TrueColors24Map() }
 
         init {
             with(data.map) {
@@ -41,6 +44,13 @@ abstract class AbstractPunter : Punter {
     override var me: Int = -1
 
     protected lateinit var state: State
+
+    protected val mines: IntArray
+        get() = with(state) {
+            mineColoring.findElementsWithValue(
+                    MINE_COLOR.toLong(), graph.vertices
+            ).toIntArray()
+        }
 
     override fun setup(data: SetupData) {
         me = data.punter

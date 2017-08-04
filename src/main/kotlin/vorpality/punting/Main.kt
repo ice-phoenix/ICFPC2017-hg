@@ -3,10 +3,12 @@ package vorpality.punting
 import com.xenomachina.argparser.ArgParser
 import com.xenomachina.argparser.default
 import io.vertx.core.json.JsonObject
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import vorpality.algo.RandomPunter
 import vorpality.algo.SpanningTreePunter
 import vorpality.protocol.*
+import vorpality.punting.GlobalSettings.MODE
 import vorpality.punting.GlobalSettings.logger
 import vorpality.util.Jsonable
 import vorpality.util.toJsonable
@@ -29,7 +31,7 @@ enum class Punters {
 object GlobalSettings {
     var MODE = Mode.OFFLINE
 
-    val logger = LoggerFactory.getLogger("Global")
+    val logger: Logger = LoggerFactory.getLogger("Global")
 }
 
 class Arguments(p: ArgParser) {
@@ -102,11 +104,11 @@ fun main(arguments: Array<String>) {
 
     val args = Arguments(ArgParser(arguments))
 
-    GlobalSettings.MODE = args.mode
+    MODE = args.mode
 
-    logger.info("Running in ${GlobalSettings.MODE} mode")
+    logger.info("Running in $MODE mode")
 
-    if (Mode.ONLINE == GlobalSettings.MODE) {
+    if (Mode.ONLINE == MODE) {
         val socker = Socket(args.url, args.port)
         val sin = BufferedReader(InputStreamReader(socker.getInputStream()), args.inputBufferSize)
         val sout = PrintWriter(socker.getOutputStream(), true)

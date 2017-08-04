@@ -1,12 +1,14 @@
 package vorpality.algo
 
 import grph.Grph
+import toools.set.IntArrayWrappingIntSet
 import toools.set.IntSingletonSet
 import vorpality.protocol.ClaimMove
 import vorpality.protocol.Move
 import vorpality.protocol.PassMove
 import vorpality.protocol.SetupData
 import vorpality.util.Jsonable
+import java.util.concurrent.ThreadLocalRandom
 
 class SpanningTreePunter : AbstractPunter() {
 
@@ -16,10 +18,6 @@ class SpanningTreePunter : AbstractPunter() {
         super.setup(data)
 
         with(state) {
-            val mines = mineColoring.findElementsWithValue(
-                    MINE_COLOR.toLong(), graph.vertices
-            ).toIntArray()
-
             val paths = mutableMapOf<Pair<Int, Int>, Int>()
 
             for (from in mines) {
@@ -55,6 +53,38 @@ class SpanningTreePunter : AbstractPunter() {
 
             logger.info("Mine pairs: $minePairs")
 
+            if (minePairs.isEmpty()) {
+
+                var newPairs = graph
+                        .connectedComponents
+                        .filter { it.contains(IntArrayWrappingIntSet(mines)) }
+                        .map { graph.getSubgraphInducedByVertices(it) }
+                        .map { scc -> scc to mines.filter { scc.containsVertex(it) }.first() }
+                        .map { (scc, from) -> from to scc.getFartestVertex(from) }
+                        .filter { (from, to) -> from != to }
+                        .toMutableList()
+
+                if (newPairs.isEmpty()) {
+                    // Try our best inside the SCCs
+                    val rnd = ThreadLocalRandom.current()
+
+                    newPairs = graph
+                            .connectedComponents
+                            .map { graph.getSubgraphInducedByVertices(it) to it.pickRandomElement(rnd) }
+                            .map { (scc, from) -> from to scc.getFartestVertex(from) }
+                            .filter { (from, to) -> from != to }
+                            .toMutableList()
+                }
+
+                if (newPairs.isEmpty()) {
+                    // Bailing out
+
+                    return PassMove(me)
+                }
+
+                minePairs = newPairs
+            }
+
             val (activePath, scc) = minePairs
                     .asSequence()
                     .map { path ->
@@ -62,7 +92,17 @@ class SpanningTreePunter : AbstractPunter() {
                                 path.first, Grph.DIRECTION.in_out)
                     }
                     .filter { (path, scc) -> scc.contains(path.second) }
-                    .firstOrNull() ?: return PassMove(me)
+                    .firstOrNull()
+                    ?: run {
+
+                // minePairs are either disconnected or empty
+                // need to switch to another strategy
+                // retry with empty minePairs handles this
+
+                minePairs.clear()
+
+                return step(emptyList())
+            }
 
             val spanningTree = graph
                     .getSubgraphInducedByVertices(scc)
@@ -93,7 +133,9 @@ class SpanningTreePunter : AbstractPunter() {
                 ClaimMove(me, to, from)
             } else {
                 minePairs.removeAt(0)
-                PassMove(me)
+
+                // retry again
+                step(emptyList())
             }
         }
     }
