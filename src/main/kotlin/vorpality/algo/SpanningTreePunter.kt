@@ -1,6 +1,7 @@
 package vorpality.algo
 
 import grph.Grph
+import grph.path.Path
 import io.vertx.core.json.JsonObject
 import toools.set.IntArrayWrappingIntSet
 import toools.set.IntSingletonSet
@@ -37,6 +38,34 @@ class SpanningTreePunter : AbstractPunter() {
         }
     }
 
+    private fun Path.isInteresting(
+            grph: Grph,
+            pred: (Int) -> Boolean): Int {
+
+        val asArray = toVertexArray()
+
+        var selectedEdge: Int = -1
+
+        var prevVertex = asArray.first()
+        for (nextVertex in asArray.drop(1)) {
+            val currentEdge = grph.getSomeEdgeConnecting(prevVertex, nextVertex)
+
+            if (pred(currentEdge)) {
+                selectedEdge = currentEdge
+                break
+            }
+
+            prevVertex = nextVertex
+        }
+
+        return selectedEdge
+    }
+
+    private fun EmptyEdgePredicate(edge: Int): Boolean =
+            with(state) {
+                EMPTY_COLOR == ownerColoring.getValueAsInt(edge)
+            }
+
     override fun step(moves: List<Move>): Move {
         with(state) {
             for ((_, claim) in moves) {
@@ -60,8 +89,17 @@ class SpanningTreePunter : AbstractPunter() {
                         .filter { it.contains(IntArrayWrappingIntSet(mines)) }
                         .map { graph.getSubgraphInducedByVertices(it) }
                         .map { scc -> scc to mines.filter { scc.containsVertex(it) }.first() }
-                        .map { (scc, from) -> from to scc.getFartestVertex(from) }
-                        .filter { (from, to) -> from != to }
+                        .map { (scc, from) -> scc to (from to scc.getFartestVertex(from)) }
+                        .filter { (_, p) -> p.first != p.second }
+                        .filter { (scc, p) ->
+                            -1 != scc.spanningTree
+                                    .getShortestPath(p.first, p.second)
+                                    .isInteresting(
+                                            graph,
+                                            this@SpanningTreePunter::EmptyEdgePredicate
+                                    )
+                        }
+                        .map { (_, p) -> p }
                         .toMutableList()
 
                 if (newPairs.isEmpty()) {
@@ -71,8 +109,17 @@ class SpanningTreePunter : AbstractPunter() {
                     newPairs = graph
                             .connectedComponents
                             .map { graph.getSubgraphInducedByVertices(it) to it.pickRandomElement(rnd) }
-                            .map { (scc, from) -> from to scc.getFartestVertex(from) }
-                            .filter { (from, to) -> from != to }
+                            .map { (scc, from) -> scc to (from to scc.getFartestVertex(from)) }
+                            .filter { (_, p) -> p.first != p.second }
+                            .filter { (scc, p) ->
+                                -1 != scc.spanningTree
+                                        .getShortestPath(p.first, p.second)
+                                        .isInteresting(
+                                                graph,
+                                                this@SpanningTreePunter::EmptyEdgePredicate
+                                        )
+                            }
+                            .map { (_, p) -> p }
                             .toMutableList()
                 }
 
@@ -112,19 +159,10 @@ class SpanningTreePunter : AbstractPunter() {
             val currentPath = spanningTree
                     .getShortestPath(activePath.first, activePath.second)
 
-            var selectedEdge: Int = -1
-
-            var prevVertex = activePath.first
-            for (nextVertex in currentPath.toVertexArray().drop(1)) {
-                val currentEdge = spanningTree.getSomeEdgeConnecting(prevVertex, nextVertex)
-
-                if (EMPTY_COLOR == ownerColoring.getValueAsInt(currentEdge)) {
-                    selectedEdge = currentEdge
-                    break
-                }
-
-                prevVertex = nextVertex
-            }
+            val selectedEdge = currentPath.isInteresting(
+                    spanningTree,
+                    this@SpanningTreePunter::EmptyEdgePredicate
+            )
 
             return if (-1 != selectedEdge) {
                 val (from, to) = spanningTree
