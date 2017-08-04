@@ -2,6 +2,7 @@ package vorpality.algo
 
 import grph.Grph
 import grph.path.Path
+import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import toools.set.IntArrayWrappingIntSet
 import toools.set.IntSingletonSet
@@ -9,6 +10,9 @@ import vorpality.protocol.ClaimMove
 import vorpality.protocol.Move
 import vorpality.protocol.PassMove
 import vorpality.protocol.SetupData
+import vorpality.util.component1
+import vorpality.util.component2
+import vorpality.util.tryToJson
 import java.util.concurrent.ThreadLocalRandom
 
 class SpanningTreePunter : AbstractPunter() {
@@ -179,7 +183,16 @@ class SpanningTreePunter : AbstractPunter() {
     }
 
     override var currentState: JsonObject
-        get() = TODO("not implemented")
-        set(value) = TODO("not implemented")
+        get() = super.currentState.apply { put("minePairs", minePairs.tryToJson()) }
+        set(value){
+            super.currentState = value
+            minePairs.clear()
+            minePairs = value.getJsonArray("minePairs").mapTo(minePairs) {
+                when(it) {
+                    is JsonArray -> it.getInteger(0) to it.getInteger(1)
+                    else -> throw IllegalArgumentException()
+                }
+            }
+        }
 
 }

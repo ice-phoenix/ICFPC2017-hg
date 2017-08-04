@@ -12,9 +12,12 @@ import vorpality.protocol.*
 import vorpality.protocol.Map
 import vorpality.punting.GlobalSettings.logger
 import vorpality.util.Jsonable
+import vorpality.util.JsonableCompanion
 import vorpality.util.toJsonable
 import java.io.*
 import java.net.Socket
+import java.util.concurrent.ThreadLocalRandom
+import kotlin.reflect.KClass
 
 enum class Mode {
     ONLINE,
@@ -44,8 +47,9 @@ class Arguments(p: ArgParser) {
     val url: String by p.storing("server url")
             .default("punter.inf.ed.ac.uk")
 
-    val port: Int by p.storing("server port") { toInt() }
-            .default(9099)
+    val port: Int by p.storing("server port") {
+        if(this == "random") ThreadLocalRandom.current().nextInt(9001, 9241) else toInt()
+    }.default(9099)
 
     val name: String by p.storing("punter name")
             .default("301 random")
@@ -122,7 +126,7 @@ fun main(arguments: Array<String>) {
     }
 }
 
-fun runFileMode(args: Arguments, punter: Punter, logger: Logger) {
+private fun runFileMode(args: Arguments, punter: Punter, logger: Logger) {
     val map: Map = JsonObject(File(args.input).readText()).toJsonable()
     logger.info("map = ${map}")
     val taken: MutableMap<River, Int> = mutableMapOf()
@@ -174,7 +178,26 @@ private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
     }
 }
 
+data class Message(val turn: GameTurnMessage? = null, val end: GameResult? = null) : Jsonable {
+    override fun toJson(): JsonObject {
+        return turn?.toJson() ?: end?.toJson() ?: JsonObject()
+    }
+
+    companion object : JsonableCompanion<Message> {
+        override val dataklass: KClass<Message> get() = throw NotImplementedError()
+
+        override fun fromJson(json: JsonObject): Message? {
+            try {
+                return Message(turn = json.toJsonable())
+            } catch(ex: Exception) {
+                return Message(end = json.toJsonable())
+            }
+        }
+    }
+}
+
 private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
+    logger.info("Connecting to ${args.url}:${args.port}")
     val socker = Socket(args.url, args.port)
     val sin = BufferedReader(InputStreamReader(socker.getInputStream()), args.inputBufferSize)
     val sout = PrintWriter(socker.getOutputStream(), true)
@@ -197,24 +220,33 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
 
     // 2. Gameplay
 
-    try {
-        while (true) {
-            val gtm: GameTurnMessage = readJsonable(sin)
+    var res: GameResult?
+    while (true) {
+        val serverMessage: Message = readJsonable(sin)
 
-            val step: Jsonable = try {
-                punter.step(gtm.move.moves)
-            } catch(t: Throwable) {
+        res = serverMessage.end
+        if (res != null) break
 
-                logger.info("Oops!", t)
+        val gtm = serverMessage.turn ?: throw IllegalStateException()
 
-                PassMove(punter.me)
-            }
+        val step: Jsonable = try {
+            punter.step(gtm.move.moves)
+        } catch(t: Throwable) {
 
-            step.writeJsonable(sout)
+            logger.info("Oops!", t)
+
+            PassMove(punter.me)
         }
-    } finally {
 
-        logger.info("And that's it!")
-
+        step.writeJsonable(sout)
     }
+
+    logger.info("And that's it!")
+    logger.info("Result: $res")
+    res ?: return
+    val myScore = res.stop.scores.find { it.punter == punter.me }?.score
+    val maxScore = res.stop.scores.map { it.score }.max()
+    logger.info("My score: $myScore")
+    logger.info("Did we win? (${if(myScore == maxScore) "Oh yeah!" else "Nope :-("})")
+
 }

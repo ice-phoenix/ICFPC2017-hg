@@ -1,19 +1,29 @@
 package vorpality.algo
 
+import grph.Grph
 import grph.in_memory.InMemoryGrph
+import grph.io.GrphBinaryReader
+import grph.io.GrphBinaryWriter
 import grph.properties.NumericalProperty
+import io.vertx.core.json.JsonObject
+import org.apache.commons.codec.binary.Base64InputStream
+import org.apache.commons.codec.binary.Base64OutputStream
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import toools.gui.TrueColors24Map
 import vorpality.protocol.SetupData
+import vorpality.util.JsonObject
+import vorpality.util.Jsonable
+import vorpality.util.JsonableCompanion
+import vorpality.util.toJsonable
+import java.io.*
+import kotlin.reflect.KClass
 
 abstract class AbstractPunter : Punter {
 
     val logger: Logger = LoggerFactory.getLogger(javaClass)
 
-    protected class State(data: SetupData) {
-        val graph = InMemoryGrph()
-
+    protected class State(val graph: Grph): Jsonable {
         val EMPTY_COLOR = 16777215
         val MINE_COLOR = 1
 
@@ -23,11 +33,12 @@ abstract class AbstractPunter : Punter {
                 .apply { palette = TrueColors24Map() }
 
         init {
+            graph.setVerticesColor(mineColoring)
+            graph.setEdgesColor(ownerColoring)
+        }
+
+        constructor(data: SetupData): this(InMemoryGrph()) {
             with(data.map) {
-
-                graph.setVerticesColor(mineColoring)
-                graph.setEdgesColor(ownerColoring)
-
                 for ((id) in sites) {
                     graph.addVertex(id)
                 }
@@ -39,10 +50,32 @@ abstract class AbstractPunter : Punter {
                 }
             }
         }
+
+        override fun toJson(): JsonObject {
+            val bstream = ByteArrayOutputStream()
+            GrphBinaryWriter().writeGraph(graph, Base64OutputStream(bstream))
+            return JsonObject(
+                    "graph" to bstream.toString()
+            )
+        }
+
+        companion object: JsonableCompanion<State> {
+            override val dataklass: KClass<State> = State::class
+            override fun fromJson(js: JsonObject): State =
+                GrphBinaryReader()
+                        .readGraph(Base64InputStream(StringBufferInputStream(js.getString("graph"))))
+                        .let(::State)
+        }
     }
 
     override var me: Int = -1
 
+    override var currentState: JsonObject
+        get() = state.toJson().apply { put("me", me) }
+        set(value) {
+            me = value.getInteger("me")
+            state = value.toJsonable<State>()
+        }
     protected lateinit var state: State
 
     protected val mines: IntArray
