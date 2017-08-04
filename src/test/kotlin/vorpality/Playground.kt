@@ -1,0 +1,3 @@
+package vorpality
+
+class Playground
