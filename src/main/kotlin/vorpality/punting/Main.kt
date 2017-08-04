@@ -146,6 +146,7 @@ fun runFileMode(args: Arguments, punter: Punter, logger: Logger) {
 
         ++counter
         if(counter == map.rivers.size) break;
+
     }
 }
 

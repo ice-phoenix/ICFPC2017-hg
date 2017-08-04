@@ -16,8 +16,8 @@ abstract class AbstractPunter : Punter {
         val EMPTY_COLOR = -1
         val MINE_COLOR = 1
 
-        val ownerColoring = NumericalProperty("owner", 32, EMPTY_COLOR.toLong())
-        val mineColoring = NumericalProperty("mines", 32, EMPTY_COLOR.toLong())
+        val ownerColoring = NumericalProperty(null, 32, EMPTY_COLOR.toLong())
+        val mineColoring = NumericalProperty(null, 32, EMPTY_COLOR.toLong())
 
         init {
             with(data.map) {
