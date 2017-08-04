@@ -24,9 +24,9 @@ data class SetupData(
         val map: Map
 ) : Jsonable
 
-data class Ready(val ready: PunterId) : Jsonable
+data class Ready(val ready: PunterId, val state: JsonObject? = null) : Jsonable
 
-data class Move(val pass: Pass? = null, val claim: Claim? = null) : Jsonable {
+data class Move(val pass: Pass? = null, val claim: Claim? = null, val state: JsonObject? = null) : Jsonable {
     // by default our json facility does not throw out nulls
     override fun toJson(): JsonObject =
             super.toJson().apply { removeAll { (_, v) -> v == null } }
@@ -35,12 +35,14 @@ data class Move(val pass: Pass? = null, val claim: Claim? = null) : Jsonable {
 data class Pass(val punter: PunterId) : Jsonable
 data class Claim(val punter: PunterId, val source: SiteId, val target: SiteId) : Jsonable
 
-fun PassMove(punter: PunterId) = Move(pass = Pass(punter))
-fun ClaimMove(punter: PunterId, source: SiteId, target: SiteId) = Move(claim = Claim(punter, source, target))
+fun PassMove(punter: PunterId, state: JsonObject? = null) =
+        Move(pass = Pass(punter), state = state)
+fun ClaimMove(punter: PunterId, source: SiteId, target: SiteId, state: JsonObject? = null) =
+        Move(claim = Claim(punter, source, target), state = state)
 
 data class GameTurn(val moves: List<Move>) : Jsonable
-data class GameTurnMessage(val move: GameTurn) : Jsonable
+data class GameTurnMessage(val move: GameTurn, val state: JsonObject? = null) : Jsonable
 
 data class Score(val punter: PunterId, val score: Int) : Jsonable
 data class GameStop(val moves: List<Move>, val scores: List<Score>) : Jsonable
-data class GameResult(val stop: GameStop) : Jsonable
+data class GameResult(val stop: GameStop, val state: JsonObject? = null) : Jsonable

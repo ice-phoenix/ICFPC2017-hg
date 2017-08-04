@@ -131,4 +131,34 @@ fun main(arguments: Array<String>) {
 
         }
     }
+
+    if (Mode.OFFLINE == GlobalSettings.MODE) {
+        val sin = BufferedReader(InputStreamReader(System.`in`), args.inputBufferSize)
+        val sout = PrintWriter(System.out, true)
+
+        // 1. Setup
+
+        val setupData: SetupData = readJsonable(sin)
+
+        val punter = RandomPunter()
+        punter.setup(setupData)
+
+        Ready(punter.me).writeJsonable(sout)
+
+        // 2. Gameplay
+
+        try {
+            while (true) {
+                val gtm: GameTurnMessage = readJsonable(sin)
+
+                val step = punter.step(gtm.move.moves)
+
+                step.writeJsonable(sout)
+            }
+        } finally {
+
+            logger.info("And that's it!")
+
+        }
+    }
 }
