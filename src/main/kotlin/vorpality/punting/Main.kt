@@ -138,15 +138,14 @@ fun runFileMode(args: Arguments, punter: Punter, logger: Logger) {
         moves[0] = pmove
 
         ++counter
-        if(counter == map.rivers.size) break
+        if (counter == map.rivers.size) break
 
         val amove = adversary.step(moves.values.toList())
         amove.claim?.apply { taken[River(source, target).sorted()] = 1 }
         moves[1] = amove
 
         ++counter
-        if(counter == map.rivers.size) break;
-
+        if (counter == map.rivers.size) break;
     }
 }
 
