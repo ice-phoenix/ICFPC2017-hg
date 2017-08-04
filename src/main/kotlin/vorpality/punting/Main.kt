@@ -5,6 +5,7 @@ import com.xenomachina.argparser.default
 import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
 import vorpality.algo.RandomPunter
+import vorpality.algo.SpanningTreePunter
 import vorpality.protocol.*
 import vorpality.punting.GlobalSettings.logger
 import vorpality.util.Jsonable
@@ -20,6 +21,11 @@ enum class Mode {
     OFFLINE
 }
 
+enum class Punters {
+    RANDOM,
+    SPANNING_TREE
+}
+
 object GlobalSettings {
     var MODE = Mode.OFFLINE
 
@@ -31,7 +37,7 @@ class Arguments(p: ArgParser) {
             Mode.values()
                     .map { "--${it.name.toLowerCase()}" to it }
                     .toMap(),
-            help = "punting mode"
+            help = "online/offline mode"
     ).default(Mode.OFFLINE)
 
     val url: String by p.storing("server url")
@@ -42,6 +48,13 @@ class Arguments(p: ArgParser) {
 
     val name: String by p.storing("punter name")
             .default("301 random")
+
+    val punter by p.mapping(
+            Punters.values()
+                    .map { "--${it.name.toLowerCase()}" to it }
+                    .toMap(),
+            help = "punter selection"
+    ).default(Punters.RANDOM)
 
     val inputBufferSize: Int by p.storing("funking input buffer size") { toInt() }
             .default(50000)
@@ -110,7 +123,10 @@ fun main(arguments: Array<String>) {
 
         val setupData: SetupData = readJsonable(sin)
 
-        val punter = RandomPunter()
+        val punter = when (args.punter) {
+            Punters.RANDOM -> RandomPunter()
+            Punters.SPANNING_TREE -> SpanningTreePunter()
+        }
         punter.setup(setupData)
 
         Ready(punter.me).writeJsonable(sout)
@@ -121,7 +137,14 @@ fun main(arguments: Array<String>) {
             while (true) {
                 val gtm: GameTurnMessage = readJsonable(sin)
 
-                val step = punter.step(gtm.move.moves)
+                val step: Jsonable = try {
+                    punter.step(gtm.move.moves)
+                } catch(t: Throwable) {
+
+                    logger.info("Oops!", t)
+
+                    PassMove(punter.me)
+                }
 
                 step.writeJsonable(sout)
             }
