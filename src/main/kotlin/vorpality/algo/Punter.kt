@@ -1,5 +1,6 @@
 package vorpality.algo
 
+import io.vertx.core.json.JsonObject
 import vorpality.protocol.ClaimMove
 import vorpality.protocol.Move
 import vorpality.protocol.River
@@ -13,7 +14,7 @@ interface Punter {
 
     fun setup(setupData: SetupData)
 
-    val currentState: Jsonable
+    var currentState: JsonObject
 
 }
 
@@ -60,7 +61,8 @@ class RandomPunter : Punter {
         return ClaimMove(me, river.target, river.source)
     }
 
-    override val currentState: Jsonable
+    override var currentState: JsonObject
         get() = TODO("not implemented")
+        set(value) = TODO("not implemented")
 
 }
