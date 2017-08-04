@@ -29,3 +29,10 @@ data class Claim(val punter: PunterId, val source: SiteId, val target: SiteId): 
 
 fun PassMove(punter: PunterId) = Move(pass = Pass(punter))
 fun ClaimMove(punter: PunterId, source: SiteId, target: SiteId) = Move(claim = Claim(punter, source, target))
+
+data class GameTurn(val moves: List<Move>): Jsonable
+data class GameTurnMessage(val move: GameTurn): Jsonable
+
+data class Score(val punter: PunterId, val score: Int): Jsonable
+data class GameStop(val moves: List<Move>, val scores: List<Score>): Jsonable
+data class GameResult(val stop: GameStop): Jsonable
