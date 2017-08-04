@@ -3,22 +3,23 @@ package vorpality.punting
 import com.xenomachina.argparser.ArgParser
 import com.xenomachina.argparser.default
 import io.vertx.core.json.JsonObject
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import vorpality.algo.Punter
 import vorpality.algo.RandomPunter
 import vorpality.algo.SpanningTreePunter
 import vorpality.protocol.*
+import vorpality.protocol.Map
 import vorpality.punting.GlobalSettings.logger
 import vorpality.util.Jsonable
 import vorpality.util.toJsonable
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.PrintWriter
-import java.io.Reader
+import java.io.*
 import java.net.Socket
 
 enum class Mode {
     ONLINE,
-    OFFLINE
+    OFFLINE,
+    FILE
 }
 
 enum class Punters {
@@ -58,6 +59,9 @@ class Arguments(p: ArgParser) {
 
     val inputBufferSize: Int by p.storing("funking input buffer size") { toInt() }
             .default(50000)
+
+    val input: String by p.storing("input file")
+            .default("maps/sample.json")
 }
 
 inline fun <reified T : Jsonable> readJsonable(sin: Reader): T {
@@ -111,73 +115,106 @@ fun main(arguments: Array<String>) {
         Punters.SPANNING_TREE -> SpanningTreePunter()
     }
 
-    if (Mode.ONLINE == GlobalSettings.MODE) {
-        val socker = Socket(args.url, args.port)
-        val sin = BufferedReader(InputStreamReader(socker.getInputStream()), args.inputBufferSize)
-        val sout = PrintWriter(socker.getOutputStream(), true)
+    when {
+        Mode.ONLINE == GlobalSettings.MODE -> runOnlineMode(args, punter, logger)
+        Mode.OFFLINE == GlobalSettings.MODE -> runOfflineMode(args, punter, logger)
+        Mode.FILE == GlobalSettings.MODE -> runFileMode(args, punter, logger)
+    }
+}
 
-        // 0. Handshake
+fun runFileMode(args: Arguments, punter: Punter, logger: Logger) {
+    val map: Map = JsonObject(File(args.input).readText()).toJsonable()
+    logger.info("map = ${map}")
+    val taken: MutableMap<River, Int> = mutableMapOf()
+    val adversary = RandomPunter()
+    punter.setup(SetupData(0, 2, map))
+    adversary.setup(SetupData(1, 2, map))
 
-        HandshakeRequest(args.name).writeJsonable(sout)
+    val moves = mutableMapOf(0 to PassMove(0), 1 to PassMove(1))
+    var counter = 0
+    while (true) {
+        val pmove = punter.step(moves.values.toList())
+        pmove.claim?.apply { taken[River(source, target).sorted()] = 0 }
+        moves[0] = pmove
 
-        val handshakeResponse: HandshakeResponse = readJsonable(sin)
+        ++counter
+        if(counter == map.rivers.size) break
 
-        assert(args.name == handshakeResponse.you)
+        val amove = adversary.step(moves.values.toList())
+        amove.claim?.apply { taken[River(source, target).sorted()] = 1 }
+        moves[1] = amove
 
-        // 1. Setup
+        ++counter
+        if(counter == map.rivers.size) break;
+    }
+}
 
+private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
+    val sin = BufferedReader(InputStreamReader(System.`in`), args.inputBufferSize)
+    val sout = PrintWriter(System.out, true)
+
+    // 1. Setup
+    try {
         val setupData: SetupData = readJsonable(sin)
-
         punter.setup(setupData)
-
-        Ready(punter.me).writeJsonable(sout)
-
-        // 2. Gameplay
-
-        try {
-            while (true) {
-                val gtm: GameTurnMessage = readJsonable(sin)
-
-                val step: Jsonable = try {
-                    punter.step(gtm.move.moves)
-                } catch(t: Throwable) {
-
-                    logger.info("Oops!", t)
-
-                    PassMove(punter.me)
-                }
-
-                step.writeJsonable(sout)
-            }
-        } finally {
-
-            logger.info("And that's it!")
-
-        }
+        Ready(punter.me, punter.currentState).writeJsonable(sout)
+    } catch (ex: Throwable) {
+        return
     }
 
-    if (Mode.OFFLINE == GlobalSettings.MODE) {
-        val sin = BufferedReader(InputStreamReader(System.`in`), args.inputBufferSize)
-        val sout = PrintWriter(System.out, true)
+    // 2. Gameplay
 
-        // 1. Setup
-        try {
-            val setupData: SetupData = readJsonable(sin)
-            punter.setup(setupData)
-            Ready(punter.me, punter.currentState).writeJsonable(sout)
-        } catch (ex: Throwable) {
-            return
-        }
+    try {
+        val gtm: GameTurnMessage = readJsonable(sin)
+        punter.currentState = gtm.state!!
+        val step = punter.step(gtm.move.moves)
+        step.copy(state = punter.currentState).writeJsonable(sout)
+    } finally {
+        logger.info("And that's it!")
+    }
+}
 
-        // 2. Gameplay
+private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
+    val socker = Socket(args.url, args.port)
+    val sin = BufferedReader(InputStreamReader(socker.getInputStream()), args.inputBufferSize)
+    val sout = PrintWriter(socker.getOutputStream(), true)
 
-        try {
+    // 0. Handshake
+
+    HandshakeRequest(args.name).writeJsonable(sout)
+
+    val handshakeResponse: HandshakeResponse = readJsonable(sin)
+
+    assert(args.name == handshakeResponse.you)
+
+    // 1. Setup
+
+    val setupData: SetupData = readJsonable(sin)
+
+    punter.setup(setupData)
+
+    Ready(punter.me).writeJsonable(sout)
+
+    // 2. Gameplay
+
+    try {
+        while (true) {
             val gtm: GameTurnMessage = readJsonable(sin)
-            punter.currentState = gtm.state!!
-            val step = punter.step(gtm.move.moves)
-            step.copy(state = punter.currentState).writeJsonable(sout)
-        } finally {
-            logger.info("And that's it!")
+
+            val step: Jsonable = try {
+                punter.step(gtm.move.moves)
+            } catch(t: Throwable) {
+
+                logger.info("Oops!", t)
+
+                PassMove(punter.me)
+            }
+
+            step.writeJsonable(sout)
         }
+    } finally {
+
+        logger.info("And that's it!")
+
     }
 }
