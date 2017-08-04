@@ -1,18 +1,19 @@
 package vorpality.algo
 
+import io.vertx.core.json.JsonObject
 import vorpality.protocol.ClaimMove
 import vorpality.protocol.Move
 import vorpality.protocol.River
 import vorpality.protocol.SetupData
+import vorpality.util.JsonObject
 import vorpality.util.Jsonable
+import vorpality.util.toJsonable
 import java.util.concurrent.ThreadLocalRandom
 
 class RandomPunter : Punter {
 
-    private class State(data: SetupData) {
-        val graph = mutableMapOf<River, Int>()
-
-        init {
+    class State(val graph: MutableMap<River, Int>): Jsonable {
+        constructor(data: SetupData): this(mutableMapOf()) {
             with(data.map) {
                 for (river in rivers) {
                     graph.put(river.sorted(), -1)
@@ -22,7 +23,6 @@ class RandomPunter : Punter {
     }
 
     override var me: Int = -1
-
     private lateinit var state: State
 
     override fun setup(data: SetupData) {
@@ -50,7 +50,11 @@ class RandomPunter : Punter {
         return ClaimMove(me, target, source)
     }
 
-    override val currentState: Jsonable
-        get() = TODO("not implemented")
+    override var currentState: JsonObject
+        get() = JsonObject("me" to me, "state" to state.toJson())
+        set(value) {
+            me = value.getInteger("me")
+            state = value.getJsonObject("state").toJsonable()
+        }
 
 }

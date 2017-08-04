@@ -1,13 +1,13 @@
 package vorpality.algo
 
 import grph.Grph
+import io.vertx.core.json.JsonObject
 import toools.set.IntArrayWrappingIntSet
 import toools.set.IntSingletonSet
 import vorpality.protocol.ClaimMove
 import vorpality.protocol.Move
 import vorpality.protocol.PassMove
 import vorpality.protocol.SetupData
-import vorpality.util.Jsonable
 import java.util.concurrent.ThreadLocalRandom
 
 class SpanningTreePunter : AbstractPunter() {
@@ -140,7 +140,8 @@ class SpanningTreePunter : AbstractPunter() {
         }
     }
 
-    override val currentState: Jsonable
+    override var currentState: JsonObject
         get() = TODO("not implemented")
+        set(value) = TODO("not implemented")
 
 }

@@ -1,5 +1,6 @@
 package vorpality.algo
 
+import io.vertx.core.json.JsonObject
 import vorpality.protocol.Move
 import vorpality.protocol.SetupData
 import vorpality.util.Jsonable
@@ -10,8 +11,9 @@ interface Punter {
 
     fun setup(data: SetupData)
 
-    val currentState: Jsonable
+    var currentState: JsonObject
 
     val me: Int
 
 }
+
