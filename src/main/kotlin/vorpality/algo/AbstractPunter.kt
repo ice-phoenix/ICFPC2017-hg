@@ -15,6 +15,7 @@ const val EMPTY_COLOR = -1
 const val MINE_COLOR = 1
 
 fun<T> decltype(witness: () -> T): KType = witness.reflect()!!.returnType
+fun<T> Any?.tryFromJsonWithTypeOf(witness: () -> T) = tryFromJson(decltype(witness)) as T
 
 abstract class AbstractPunter : Punter {
 
@@ -57,7 +58,7 @@ abstract class AbstractPunter : Punter {
             override fun fromJson(json: JsonObject): State {
                 val grph = InMemoryGrph()
 
-                val edgeMap = json.get("graph").tryFromJson(decltype{ mutableMapOf(1 to (2 to 3)) }) as MutableMap<Int, Pair<Int, Int>>
+                val edgeMap = json.get("graph").tryFromJsonWithTypeOf{ mutableMapOf(1 to (2 to 3)) }
 
                 for ((e, p) in edgeMap) {
                     grph.addSimpleEdge(p.first, e, p.second, false)
@@ -65,8 +66,8 @@ abstract class AbstractPunter : Punter {
 
                 return State(
                         graph = grph,
-                        mineColoring = json.get("mineColoring").tryFromJson(decltype { mutableMapOf(1 to 2) }) as MutableMap<Int, Int>,
-                        ownerColoring = json.get("ownerColoring").tryFromJson(decltype { mutableMapOf(1 to 2) }) as MutableMap<Int, Int>
+                        mineColoring = json.get("mineColoring").tryFromJsonWithTypeOf { mutableMapOf(1 to 2) },
+                        ownerColoring = json.get("ownerColoring").tryFromJsonWithTypeOf { mutableMapOf(1 to 2) }
                 )
             }
 
