@@ -8,10 +8,13 @@ import org.slf4j.LoggerFactory
 import vorpality.protocol.SetupData
 import vorpality.util.*
 import kotlin.reflect.KClass
+import kotlin.reflect.KType
 import kotlin.reflect.jvm.reflect
 
 const val EMPTY_COLOR = -1
 const val MINE_COLOR = 1
+
+fun<T> decltype(witness: () -> T): KType = witness.reflect()!!.returnType
 
 abstract class AbstractPunter : Punter {
 
@@ -54,7 +57,7 @@ abstract class AbstractPunter : Punter {
             override fun fromJson(json: JsonObject): State {
                 val grph = InMemoryGrph()
 
-                val edgeMap = json.get("graph").tryFromJson({ mutableMapOf(1 to (2 to 3)) }.reflect()!!.returnType) as MutableMap<Int, Pair<Int, Int>>
+                val edgeMap = json.get("graph").tryFromJson(decltype{ mutableMapOf(1 to (2 to 3)) }) as MutableMap<Int, Pair<Int, Int>>
 
                 for ((e, p) in edgeMap) {
                     grph.addSimpleEdge(p.first, e, p.second, false)
@@ -62,8 +65,8 @@ abstract class AbstractPunter : Punter {
 
                 return State(
                         graph = grph,
-                        mineColoring = json.get("mineColoring").tryFromJson({ mutableMapOf(1 to 2) }.reflect()!!.returnType) as MutableMap<Int, Int>,
-                        ownerColoring = json.get("ownerColoring").tryFromJson({ mutableMapOf(1 to 2) }.reflect()!!.returnType) as MutableMap<Int, Int>
+                        mineColoring = json.get("mineColoring").tryFromJson(decltype { mutableMapOf(1 to 2) }) as MutableMap<Int, Int>,
+                        ownerColoring = json.get("ownerColoring").tryFromJson(decltype { mutableMapOf(1 to 2) }) as MutableMap<Int, Int>
                 )
             }
 
