@@ -89,6 +89,17 @@ class GraphPanel(val graphSim: GraphSim, val me: Int): javax.swing.JPanel() {
             g2.color = Color.RED
             g2.draw(circle(adjustX(site.x!!), adjustY(site.y!!), 5))
         }
+
+//        for(river in map.rivers) {
+//            g2.stroke = BasicStroke(0.3f)
+//            g2.color = Color.WHITE
+//            g2.drawLine(
+//                    adjustX(sites[river.source]?.x!!),
+//                    adjustY(sites[river.source]?.y!!),
+//                    adjustX(sites[river.target]?.x!!),
+//                    adjustY(sites[river.target]?.y!!)
+//            )
+//        }
     }
 
     private val WIDTH = 640

@@ -2,6 +2,7 @@ package vorpality.algo
 
 import grph.Grph
 import grph.path.Path
+import grph.properties.NumericalProperty
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import toools.set.IntArrayWrappingIntSet
@@ -93,6 +94,8 @@ class SpanningTreePunter : AbstractPunter() {
             val rnd = ThreadLocalRandom.current()
 
             val ourEdges = state.ownerColoring.filter { it.value == me }.keys.toIntSet()
+
+            val ourEdgesFirstPriority = NumericalProperty(null, 32, 3).apply { ourEdges.forEach { setValue(it.value, 1) }}
             val ourVertices = ourEdges.flatMap { graph.edgeVertices(it.value).toList() }.toIntSet()
 
             fun Grph.findPath(v0: Int, v1: Int) =
@@ -107,14 +110,15 @@ class SpanningTreePunter : AbstractPunter() {
                 var newPairs = graph
                         .connectedComponents
                         .asSequence()
-                        .filter { it.contains(IntArrayWrappingIntSet(mines)) }
+                        // XXX: belyaev: did I get it correctly?
+                        .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
                         .map { graph.getSubgraphInducedByVertices(it) }
                         .map { scc -> scc to (mines.filter { scc.containsVertex(it) }.firstOrNull() ?: scc.vertices.pickRandomElement(rnd)) }
                         .map { (scc, from) -> scc to (from to scc.getFartestVertex(from)) }
                         .filter { (_, p) -> p.first != p.second }
                         .filter { (scc, p) ->
                             -1 != scc.spanningTree
-                                    .getShortestPath(p.first, p.second)
+                                    .getShortestPath(p.first, p.second, ourEdgesFirstPriority)
                                     .isInteresting(
                                             graph,
                                             this@SpanningTreePunter::EmptyEdgePredicate
@@ -128,14 +132,14 @@ class SpanningTreePunter : AbstractPunter() {
 
                     newPairs = graph
                             .connectedComponents
-                            .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
                             .asSequence()
+                            .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
                             .map { graph.getSubgraphInducedByVertices(it) to it.pickRandomElement(rnd) }
                             .map { (scc, from) -> scc to (from to scc.vertices.pickRandomElementIfNotEmpty(rnd, from, false)) }
                             .filter { (_, p) -> p.first != p.second }
                             .filter { (scc, p) ->
                                 -1 != scc.spanningTree
-                                        .getShortestPath(p.first, p.second)
+                                        .getShortestPath(p.first, p.second, ourEdgesFirstPriority)
                                         .isInteresting(
                                                 graph,
                                                 this@SpanningTreePunter::EmptyEdgePredicate
@@ -177,14 +181,20 @@ class SpanningTreePunter : AbstractPunter() {
                     .getSubgraphInducedByVertices(scc)
                     .spanningTree
 
-            val (from, to) = if (rnd.nextBoolean() || mineColoring[activePath.first] == MINE_COLOR) {
+            val shuffle = when {
+                mineColoring[activePath.first] == mineColoring[activePath.second] -> rnd.nextBoolean()
+                mineColoring[activePath.first] == MINE_COLOR -> true
+                else -> false
+            }
+
+            val (from, to) = if (shuffle) {
                 activePath.first to activePath.second
             } else {
                 activePath.second to activePath.first
             }
 
             val currentPath = spanningTree
-                    .getShortestPath(from, to)
+                    .getShortestPath(from, to, ourEdgesFirstPriority)
 
             logger.info("Path: $currentPath")
 
@@ -194,9 +204,7 @@ class SpanningTreePunter : AbstractPunter() {
             )
 
             return if (-1 != selectedEdge) {
-                val (from, to) = spanningTree
-                        .getVerticesIncidentToEdge(selectedEdge)
-                        .toIntArray()
+                val (from, to) = spanningTree.edgeVertices(selectedEdge)
                 ClaimMove(me, to, from)
             } else {
                 minePairs.removeAt(0)
