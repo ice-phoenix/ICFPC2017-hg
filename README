@@ -1,0 +1,11 @@
+= Team 301
+
+* Marat Akhin
+* Mikhail Belyaev
+
+NB! Submission is written in Kotlin, if you want to compile it, run
+
+    mvn clean package
+
+which requires (dope!) network access.
+Pre-built jar-with-dependencies is provided in target/ directory.
