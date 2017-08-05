@@ -94,6 +94,7 @@ class SpanningTreePunter : AbstractPunter() {
 
                 var newPairs = graph
                         .connectedComponents
+                        .asSequence()
                         .filter { it.contains(IntArrayWrappingIntSet(mines)) }
                         .map { graph.getSubgraphInducedByVertices(it) }
                         .map { scc -> scc to (mines.filter { scc.containsVertex(it) }.firstOrNull() ?: scc.vertices.pickRandomElement(rnd)) }
@@ -115,6 +116,7 @@ class SpanningTreePunter : AbstractPunter() {
 
                     newPairs = graph
                             .connectedComponents
+                            .asSequence()
                             .map { graph.getSubgraphInducedByVertices(it) to it.pickRandomElement(rnd) }
                             .map { (scc, from) -> scc to (from to scc.getFartestVertex(from)) }
                             .filter { (_, p) -> p.first != p.second }
