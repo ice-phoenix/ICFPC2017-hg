@@ -16,6 +16,8 @@ data class River(val source: SiteId, val target: SiteId) : Jsonable {
     fun sorted() = River(minOf(source, target), maxOf(source, target))
 }
 
+data class Future(val source: SiteId, val target: SiteId) : Jsonable
+
 data class Map(val sites: List<Site>, val rivers: List<River>, val mines: List<SiteId>) : Jsonable
 
 data class SetupData(
@@ -24,7 +26,7 @@ data class SetupData(
         val map: Map
 ) : Jsonable
 
-data class Ready(val ready: PunterId, val state: JsonObject? = null) : Jsonable
+data class Ready(val ready: PunterId, val futures: List<Future>? = null, val state: JsonObject? = null) : Jsonable
 
 data class Move(val pass: Pass? = null, val claim: Claim? = null, val state: JsonObject? = null) : Jsonable {
     // by default our json facility does not throw out nulls
@@ -37,6 +39,7 @@ data class Claim(val punter: PunterId, val source: SiteId, val target: SiteId) :
 
 fun PassMove(punter: PunterId, state: JsonObject? = null) =
         Move(pass = Pass(punter), state = state)
+
 fun ClaimMove(punter: PunterId, source: SiteId, target: SiteId, state: JsonObject? = null) =
         Move(claim = Claim(punter, source, target), state = state)
 

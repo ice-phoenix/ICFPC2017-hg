@@ -10,10 +10,10 @@ import vorpality.protocol.ClaimMove
 import vorpality.protocol.Move
 import vorpality.protocol.PassMove
 import vorpality.protocol.SetupData
-import vorpality.util.component1
-import vorpality.util.component2
 import vorpality.util.tryToJson
 import java.util.concurrent.ThreadLocalRandom
+import kotlin.collections.component1
+import kotlin.collections.component2
 
 class SpanningTreePunter : AbstractPunter() {
 
@@ -184,11 +184,11 @@ class SpanningTreePunter : AbstractPunter() {
 
     override var currentState: JsonObject
         get() = super.currentState.apply { put("minePairs", minePairs.tryToJson()) }
-        set(value){
+        set(value) {
             super.currentState = value
             minePairs.clear()
             minePairs = value.getJsonArray("minePairs").mapTo(minePairs) {
-                when(it) {
+                when (it) {
                     is JsonArray -> it.getInteger(0) to it.getInteger(1)
                     else -> throw IllegalArgumentException()
                 }

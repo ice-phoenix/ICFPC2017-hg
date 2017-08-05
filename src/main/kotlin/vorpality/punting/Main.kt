@@ -33,7 +33,7 @@ enum class Punters {
 object GlobalSettings {
     var MODE = Mode.OFFLINE
 
-    val logger = LoggerFactory.getLogger("Global")
+    val logger: Logger = LoggerFactory.getLogger("Global")
 }
 
 class Arguments(p: ArgParser) {
@@ -48,7 +48,7 @@ class Arguments(p: ArgParser) {
             .default("punter.inf.ed.ac.uk")
 
     val port: Int by p.storing("server port") {
-        if(this == "random") ThreadLocalRandom.current().nextInt(9001, 9241) else toInt()
+        if (this == "random") ThreadLocalRandom.current().nextInt(9001, 9241) else toInt()
     }.default(9099)
 
     val name: String by p.storing("punter name")
@@ -157,11 +157,17 @@ private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
     val sin = BufferedReader(InputStreamReader(System.`in`), args.inputBufferSize)
     val sout = PrintWriter(System.out, true)
 
+    // 0. Handshake
+
+    HandshakeRequest(args.name).writeJsonable(sout)
+    val handshakeResponse: HandshakeResponse = readJsonable(sin)
+    assert(args.name == handshakeResponse.you)
+
     // 1. Setup
     try {
         val setupData: SetupData = readJsonable(sin)
         punter.setup(setupData)
-        Ready(punter.me, punter.currentState).writeJsonable(sout)
+        Ready(punter.me, state = punter.currentState).writeJsonable(sout)
     } catch (ex: Throwable) {
         return
     }
@@ -247,6 +253,6 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
     val myScore = res.stop.scores.find { it.punter == punter.me }?.score
     val maxScore = res.stop.scores.map { it.score }.max()
     logger.info("My score: $myScore")
-    logger.info("Did we win? (${if(myScore == maxScore) "Oh yeah!" else "Nope :-("})")
+    logger.info("Did we win? (${if (myScore == maxScore) "Oh yeah!" else "Nope :-("})")
 
 }

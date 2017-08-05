@@ -16,16 +16,19 @@ import vorpality.util.JsonObject
 import vorpality.util.Jsonable
 import vorpality.util.JsonableCompanion
 import vorpality.util.toJsonable
-import java.io.*
+import java.io.ByteArrayOutputStream
+import java.io.StringBufferInputStream
 import kotlin.reflect.KClass
 
 abstract class AbstractPunter : Punter {
 
     val logger: Logger = LoggerFactory.getLogger(javaClass)
 
-    protected class State(val graph: Grph): Jsonable {
+    protected class State(val graph: Grph) : Jsonable {
         val EMPTY_COLOR = 16777215
         val MINE_COLOR = 1
+
+        // TODO: Save/load colorings to/from json
 
         val ownerColoring = NumericalProperty(null, 32, EMPTY_COLOR.toLong())
                 .apply { palette = TrueColors24Map() }
@@ -37,7 +40,7 @@ abstract class AbstractPunter : Punter {
             graph.setEdgesColor(ownerColoring)
         }
 
-        constructor(data: SetupData): this(InMemoryGrph()) {
+        constructor(data: SetupData) : this(InMemoryGrph()) {
             with(data.map) {
                 for ((id) in sites) {
                     graph.addVertex(id)
@@ -59,12 +62,12 @@ abstract class AbstractPunter : Punter {
             )
         }
 
-        companion object: JsonableCompanion<State> {
+        companion object : JsonableCompanion<State> {
             override val dataklass: KClass<State> = State::class
-            override fun fromJson(js: JsonObject): State =
-                GrphBinaryReader()
-                        .readGraph(Base64InputStream(StringBufferInputStream(js.getString("graph"))))
-                        .let(::State)
+            override fun fromJson(json: JsonObject): State =
+                    GrphBinaryReader()
+                            .readGraph(Base64InputStream(StringBufferInputStream(json.getString("graph"))))
+                            .let(::State)
         }
     }
 
