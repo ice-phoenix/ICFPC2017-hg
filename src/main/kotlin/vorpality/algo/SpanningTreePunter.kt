@@ -88,9 +88,9 @@ class SpanningTreePunter : AbstractPunter() {
             logger.info("Mine color: $mineColoring")
             logger.info("Owner color: $ownerColoring")
 
-            if (minePairs.isEmpty()) {
+            val rnd = ThreadLocalRandom.current()
 
-                val rnd = ThreadLocalRandom.current()
+            if (minePairs.isEmpty()) {
 
                 var newPairs = graph
                         .connectedComponents
@@ -118,7 +118,7 @@ class SpanningTreePunter : AbstractPunter() {
                             .connectedComponents
                             .asSequence()
                             .map { graph.getSubgraphInducedByVertices(it) to it.pickRandomElement(rnd) }
-                            .map { (scc, from) -> scc to (from to scc.getFartestVertex(from)) }
+                            .map { (scc, from) -> scc to (from to scc.vertices.pickRandomElement(rnd, from, false)) }
                             .filter { (_, p) -> p.first != p.second }
                             .filter { (scc, p) ->
                                 -1 != scc.spanningTree
@@ -164,8 +164,14 @@ class SpanningTreePunter : AbstractPunter() {
                     .getSubgraphInducedByVertices(scc)
                     .spanningTree
 
+            val (from, to) = if (rnd.nextBoolean()) {
+                activePath.first to activePath.second
+            } else {
+                activePath.second to activePath.first
+            }
+
             val currentPath = spanningTree
-                    .getShortestPath(activePath.first, activePath.second)
+                    .getShortestPath(from, to)
 
             logger.info("Path: $currentPath")
 
