@@ -14,6 +14,7 @@ import vorpality.protocol.Map
 import vorpality.punting.GlobalSettings.logger
 import vorpality.sim.GraphPanel
 import vorpality.sim.GraphSim
+import vorpality.util.JsonObject
 import vorpality.util.Jsonable
 import vorpality.util.JsonableCompanion
 import vorpality.util.toJsonable
@@ -70,6 +71,9 @@ class Arguments(p: ArgParser) {
 
     val input: String by p.storing("input file")
             .default("maps/sample.json")
+
+    val results: String by p.storing("result trace file (empty for no trace)")
+            .default("")
 
     val gui: Boolean by p.flagging("Enable GUI").default(false)
 }
@@ -288,6 +292,12 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
     val maxScore = res.stop.scores.map { it.score }.max()
     logger.info("My score: $myScore")
     logger.info("Did we win? (${if (myScore == maxScore) "Oh yeah!" else "Nope :-("})")
+
+    if(args.results != "") {
+        File(args.results).appendText(
+                JsonObject("score" to myScore, "win" to (myScore == maxScore), "url" to args.url, "port" to args.port).encodePrettily() + ",\n"
+        )
+    }
 
 
 }
