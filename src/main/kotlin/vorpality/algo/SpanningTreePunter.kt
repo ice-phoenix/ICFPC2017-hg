@@ -5,7 +5,6 @@ import grph.path.Path
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import toools.set.IntArrayWrappingIntSet
-import toools.set.IntSingletonSet
 import vorpality.protocol.ClaimMove
 import vorpality.protocol.Move
 import vorpality.protocol.PassMove
@@ -17,7 +16,7 @@ import kotlin.collections.component2
 
 class SpanningTreePunter : AbstractPunter() {
 
-    private lateinit var minePairs: MutableList<Pair<Int, Int>>
+    private var minePairs: MutableList<Pair<Int, Int>> = mutableListOf()
 
     override fun setup(data: SetupData) {
         super.setup(data)
@@ -67,7 +66,7 @@ class SpanningTreePunter : AbstractPunter() {
 
     private fun EmptyEdgePredicate(edge: Int): Boolean =
             with(state) {
-                EMPTY_COLOR == ownerColoring.getValueAsInt(edge)
+                EMPTY_COLOR == ownerColoring.getOrDefault(edge, EMPTY_COLOR)
             }
 
     override fun step(moves: List<Move>): Move {
@@ -78,7 +77,7 @@ class SpanningTreePunter : AbstractPunter() {
                 val edge = graph.getSomeEdgeConnecting(claim.source, claim.target)
 
                 if (me == claim.punter) {
-                    graph.highlightEdges(IntSingletonSet(edge), me)
+                    ownerColoring[edge] = me
                 } else {
                     graph.removeEdge(edge)
                 }
@@ -86,13 +85,18 @@ class SpanningTreePunter : AbstractPunter() {
 
             logger.info("Mine pairs: $minePairs")
 
+            logger.info("Mine color: $mineColoring")
+            logger.info("Owner color: $ownerColoring")
+
             if (minePairs.isEmpty()) {
+
+                val rnd = ThreadLocalRandom.current()
 
                 var newPairs = graph
                         .connectedComponents
                         .filter { it.contains(IntArrayWrappingIntSet(mines)) }
                         .map { graph.getSubgraphInducedByVertices(it) }
-                        .map { scc -> scc to mines.filter { scc.containsVertex(it) }.first() }
+                        .map { scc -> scc to (mines.filter { scc.containsVertex(it) }.firstOrNull() ?: scc.vertices.pickRandomElement(rnd)) }
                         .map { (scc, from) -> scc to (from to scc.getFartestVertex(from)) }
                         .filter { (_, p) -> p.first != p.second }
                         .filter { (scc, p) ->
@@ -108,7 +112,6 @@ class SpanningTreePunter : AbstractPunter() {
 
                 if (newPairs.isEmpty()) {
                     // Try our best inside the SCCs
-                    val rnd = ThreadLocalRandom.current()
 
                     newPairs = graph
                             .connectedComponents
@@ -158,10 +161,11 @@ class SpanningTreePunter : AbstractPunter() {
             val spanningTree = graph
                     .getSubgraphInducedByVertices(scc)
                     .spanningTree
-                    .apply { setEdgesColor(ownerColoring) }
 
             val currentPath = spanningTree
                     .getShortestPath(activePath.first, activePath.second)
+
+            logger.info("Path: $currentPath")
 
             val selectedEdge = currentPath.isInteresting(
                     spanningTree,

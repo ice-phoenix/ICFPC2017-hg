@@ -78,7 +78,7 @@ inline fun <reified T : Jsonable> readJsonable(sin: Reader): T {
         else break
     }
 
-    val length = length_.toInt()
+    val length = length_.trim().toInt()
 
     val contentAsArray = CharArray(length)
 
@@ -154,7 +154,7 @@ private fun runFileMode(args: Arguments, punter: Punter, logger: Logger) {
 }
 
 private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
-    val sin = BufferedReader(InputStreamReader(System.`in`), args.inputBufferSize)
+    val sin = InputStreamReader(System.`in`)
     val sout = PrintWriter(System.out, true)
 
     // 0. Handshake
@@ -163,41 +163,58 @@ private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
     val handshakeResponse: HandshakeResponse = readJsonable(sin)
     assert(args.name == handshakeResponse.you)
 
-    // 1. Setup
-    try {
-        val setupData: SetupData = readJsonable(sin)
-        punter.setup(setupData)
+    val message: Message = readJsonable(sin)
+
+    // 1. Stuff
+    if (message.setupData != null) {
+        punter.setup(message.setupData)
         Ready(punter.me, state = punter.currentState).writeJsonable(sout)
-    } catch (ex: Throwable) {
         return
-    }
-
-    // 2. Gameplay
-
-    try {
-        val gtm: GameTurnMessage = readJsonable(sin)
-        punter.currentState = gtm.state!!
-        val step = punter.step(gtm.move.moves)
-        step.copy(state = punter.currentState).writeJsonable(sout)
-    } finally {
+    } else if (message.turn != null) {
+        try {
+            val gtm = message.turn
+            punter.currentState = gtm.state!!
+            val step = punter.step(gtm.move.moves)
+            step.copy(state = punter.currentState).writeJsonable(sout)
+        } catch (ex: Exception) {
+            PassMove(punter.me, state = punter.currentState).writeJsonable(sout)
+        }
+        return
+    } else if (message.end != null) {
+        val res = message.end
+        message.end.state?.let { punter.currentState = it }
         logger.info("And that's it!")
+        logger.info("Result: $res")
+        val myScore = res.stop.scores.find { it.punter == punter.me }?.score
+        val maxScore = res.stop.scores.map { it.score }.max()
+        logger.info("My score: $myScore")
+        logger.info("Did we win? (${if (myScore == maxScore) "Oh yeah!" else "Nope :-("})")
     }
+
 }
 
-data class Message(val turn: GameTurnMessage? = null, val end: GameResult? = null) : Jsonable {
+fun <T> tryOrNull(body: () -> T) = try {
+    body()
+} catch (ex: Exception) {
+    null
+}
+
+data class Message(val turn: GameTurnMessage? = null, val end: GameResult? = null, val setupData: SetupData? = null) : Jsonable {
     override fun toJson(): JsonObject {
-        return turn?.toJson() ?: end?.toJson() ?: JsonObject()
+        return turn?.toJson() ?: end?.toJson() ?: setupData?.toJson() ?: throw IllegalStateException()
     }
 
     companion object : JsonableCompanion<Message> {
         override val dataklass: KClass<Message> get() = throw NotImplementedError()
 
         override fun fromJson(json: JsonObject): Message? {
-            try {
-                return Message(turn = json.toJsonable())
-            } catch(ex: Exception) {
-                return Message(end = json.toJsonable())
-            }
+            return tryOrNull {
+                Message(turn = json.toJsonable())
+            } ?: tryOrNull {
+                Message(end = json.toJsonable())
+            } ?: tryOrNull {
+                Message(setupData = json.toJsonable())
+            } ?: throw IllegalArgumentException()
         }
     }
 }

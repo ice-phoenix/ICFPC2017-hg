@@ -2,44 +2,24 @@ package vorpality.algo
 
 import grph.Grph
 import grph.in_memory.InMemoryGrph
-import grph.io.GrphBinaryReader
-import grph.io.GrphBinaryWriter
-import grph.properties.NumericalProperty
 import io.vertx.core.json.JsonObject
-import org.apache.commons.codec.binary.Base64InputStream
-import org.apache.commons.codec.binary.Base64OutputStream
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import toools.gui.TrueColors24Map
 import vorpality.protocol.SetupData
-import vorpality.util.JsonObject
-import vorpality.util.Jsonable
-import vorpality.util.JsonableCompanion
-import vorpality.util.toJsonable
-import java.io.ByteArrayOutputStream
-import java.io.StringBufferInputStream
+import vorpality.util.*
 import kotlin.reflect.KClass
+import kotlin.reflect.jvm.reflect
+
+const val EMPTY_COLOR = -1
+const val MINE_COLOR = 1
 
 abstract class AbstractPunter : Punter {
 
     val logger: Logger = LoggerFactory.getLogger(javaClass)
 
-    protected class State(val graph: Grph) : Jsonable {
-        val EMPTY_COLOR = 16777215
-        val MINE_COLOR = 1
-
-        // TODO: Save/load colorings to/from json
-
-        val ownerColoring = NumericalProperty(null, 32, EMPTY_COLOR.toLong())
-                .apply { palette = TrueColors24Map() }
-        val mineColoring = NumericalProperty(null, 32, EMPTY_COLOR.toLong())
-                .apply { palette = TrueColors24Map() }
-
-        init {
-            graph.setVerticesColor(mineColoring)
-            graph.setEdgesColor(ownerColoring)
-        }
-
+    protected class State(val graph: Grph,
+                          val ownerColoring: MutableMap<Int, Int> = mutableMapOf(),
+                          val mineColoring: MutableMap<Int, Int> = mutableMapOf()) : Jsonable {
         constructor(data: SetupData) : this(InMemoryGrph()) {
             with(data.map) {
                 for ((id) in sites) {
@@ -49,25 +29,44 @@ abstract class AbstractPunter : Punter {
                     graph.addSimpleEdge(from, to, false)
                 }
                 for (mine in mines) {
-                    graph.highlightVertex(mine, MINE_COLOR)
+                    mineColoring[mine] = MINE_COLOR
                 }
             }
         }
 
         override fun toJson(): JsonObject {
-            val bstream = ByteArrayOutputStream()
-            GrphBinaryWriter().writeGraph(graph, Base64OutputStream(bstream))
+            val edges = graph.edges.toIntArray()
+            val edgeMap = edges
+                    .asSequence()
+                    .map { e -> e to graph.getOneVertex(e) }
+                    .map { (e, from) -> e to (from to graph.getTheOtherVertex(e, from)) }
+                    .toMap()
+
             return JsonObject(
-                    "graph" to bstream.toString()
+                    "graph" to edgeMap.tryToJson(),
+                    "mineColoring" to mineColoring.tryToJson(),
+                    "ownerColoring" to ownerColoring.tryToJson()
             )
         }
 
         companion object : JsonableCompanion<State> {
             override val dataklass: KClass<State> = State::class
-            override fun fromJson(json: JsonObject): State =
-                    GrphBinaryReader()
-                            .readGraph(Base64InputStream(StringBufferInputStream(json.getString("graph"))))
-                            .let(::State)
+            override fun fromJson(json: JsonObject): State {
+                val grph = InMemoryGrph()
+
+                val edgeMap = json.get("graph").tryFromJson({ mutableMapOf(1 to (2 to 3)) }.reflect()!!.returnType) as MutableMap<Int, Pair<Int, Int>>
+
+                for ((e, p) in edgeMap) {
+                    grph.addSimpleEdge(p.first, e, p.second, false)
+                }
+
+                return State(
+                        graph = grph,
+                        mineColoring = json.get("mineColoring").tryFromJson({ mutableMapOf(1 to 2) }.reflect()!!.returnType) as MutableMap<Int, Int>,
+                        ownerColoring = json.get("ownerColoring").tryFromJson({ mutableMapOf(1 to 2) }.reflect()!!.returnType) as MutableMap<Int, Int>
+                )
+            }
+
         }
     }
 
@@ -83,9 +82,10 @@ abstract class AbstractPunter : Punter {
 
     protected val mines: IntArray
         get() = with(state) {
-            mineColoring.findElementsWithValue(
-                    MINE_COLOR.toLong(), graph.vertices
-            ).toIntArray()
+            mineColoring
+                    .filter { it.value == MINE_COLOR }
+                    .map { it.key }
+                    .toIntArray()
         }
 
     override fun setup(data: SetupData) {
