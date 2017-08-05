@@ -89,13 +89,13 @@ private fun makeJsonCollection(klass: KType, list: List<Any?>): Any =
             List::class, Collection::class, Iterable::class -> list
             Sequence::class -> list.asSequence()
             Set::class -> list.toSet()
-            Map::class -> list.filterIsInstance<Pair<*, *>>().toMap()
+            Map::class -> list.filterIsInstance<Pair<*, *>>().toMap().toMutableMap()
             else -> throw IllegalArgumentException("Cannot convert json array $list to type $klass")
         }
 
 /******************************************************************************/
 
-private fun Any?.tryFromJson(klass: KType): Any? {
+fun Any?.tryFromJson(klass: KType): Any? {
     fun die(): Nothing = throw IllegalArgumentException("Cannot convert $this from json to type $klass")
     val erasure = klass.jvmErasure
     val companion = erasure.companionObjectInstance
