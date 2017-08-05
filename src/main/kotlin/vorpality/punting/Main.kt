@@ -5,12 +5,15 @@ import com.xenomachina.argparser.default
 import io.vertx.core.json.JsonObject
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import vorpality.algo.Passer
 import vorpality.algo.Punter
 import vorpality.algo.RandomPunter
 import vorpality.algo.SpanningTreePunter
 import vorpality.protocol.*
 import vorpality.protocol.Map
 import vorpality.punting.GlobalSettings.logger
+import vorpality.sim.GraphPanel
+import vorpality.sim.GraphSim
 import vorpality.util.Jsonable
 import vorpality.util.JsonableCompanion
 import vorpality.util.toJsonable
@@ -27,7 +30,8 @@ enum class Mode {
 
 enum class Punters {
     RANDOM,
-    SPANNING_TREE
+    SPANNING_TREE,
+    PASSER
 }
 
 object GlobalSettings {
@@ -66,6 +70,8 @@ class Arguments(p: ArgParser) {
 
     val input: String by p.storing("input file")
             .default("maps/sample.json")
+
+    val gui: Boolean by p.flagging("Enable GUI").default(false)
 }
 
 inline fun <reified T : Jsonable> readJsonable(sin: Reader): T {
@@ -117,6 +123,7 @@ fun main(arguments: Array<String>) {
     val punter = when (args.punter) {
         Punters.RANDOM -> RandomPunter()
         Punters.SPANNING_TREE -> SpanningTreePunter()
+        Punters.PASSER -> Passer()
     }
 
     when {
@@ -237,7 +244,14 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
 
     val setupData: SetupData = readJsonable(sin)
 
+    val sim = if(args.gui) GraphSim(setupData.map) else null
     punter.setup(setupData)
+    val gui = if(args.gui) {
+        GraphPanel(sim!!, punter.me).apply {
+            showMe()
+            repaint()
+        }
+    } else null
 
     Ready(punter.me).writeJsonable(sout)
 
@@ -253,6 +267,9 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
         val gtm = serverMessage.turn ?: throw IllegalStateException()
 
         val step: Jsonable = try {
+            for(move in gtm.move.moves) sim?.handleMove(move)
+            gui?.repaint()
+
             punter.step(gtm.move.moves)
         } catch(t: Throwable) {
 
@@ -265,11 +282,12 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
     }
 
     logger.info("And that's it!")
-    logger.info("Result: $res")
+    logger.info("Result: ${res?.stop?.scores?.joinToString("\n", prefix = "\n") { "${it.punter}: ${it.score}" }}")
     res ?: return
     val myScore = res.stop.scores.find { it.punter == punter.me }?.score
     val maxScore = res.stop.scores.map { it.score }.max()
     logger.info("My score: $myScore")
     logger.info("Did we win? (${if (myScore == maxScore) "Oh yeah!" else "Nope :-("})")
+
 
 }

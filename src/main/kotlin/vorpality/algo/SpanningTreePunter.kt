@@ -5,6 +5,7 @@ import grph.path.Path
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import toools.set.IntArrayWrappingIntSet
+import toools.set.IntSet
 import vorpality.protocol.ClaimMove
 import vorpality.protocol.Move
 import vorpality.protocol.PassMove
@@ -118,7 +119,7 @@ class SpanningTreePunter : AbstractPunter() {
                             .connectedComponents
                             .asSequence()
                             .map { graph.getSubgraphInducedByVertices(it) to it.pickRandomElement(rnd) }
-                            .map { (scc, from) -> scc to (from to scc.vertices.pickRandomElement(rnd, from, false)) }
+                            .map { (scc, from) -> scc to (from to scc.vertices.pickRandomElementIfNotEmpty(rnd, from, false)) }
                             .filter { (_, p) -> p.first != p.second }
                             .filter { (scc, p) ->
                                 -1 != scc.spanningTree
@@ -207,4 +208,9 @@ class SpanningTreePunter : AbstractPunter() {
             }
         }
 
+}
+
+private fun IntSet.pickRandomElementIfNotEmpty(rnd: ThreadLocalRandom?, from: Int, b: Boolean): Int {
+    if(size() <= 1) return from
+    return pickRandomElement(rnd, from, b)
 }

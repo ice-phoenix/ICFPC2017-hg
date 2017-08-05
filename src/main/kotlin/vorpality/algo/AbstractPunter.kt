@@ -58,7 +58,7 @@ abstract class AbstractPunter : Punter {
             override fun fromJson(json: JsonObject): State {
                 val grph = InMemoryGrph()
 
-                val edgeMap = json.get("graph").tryFromJsonWithTypeOf{ mutableMapOf(1 to (2 to 3)) }
+                val edgeMap = json.get("graph").tryFromJsonWithTypeOf { mutableMapOf(1 to (2 to 3)) }
 
                 for ((e, p) in edgeMap) {
                     grph.addSimpleEdge(p.first, e, p.second, false)
