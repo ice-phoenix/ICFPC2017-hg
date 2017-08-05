@@ -5,6 +5,9 @@ import java.awt.*
 import java.awt.geom.Ellipse2D
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
+import java.awt.RenderingHints
+
+
 
 class GraphPanel(val graphSim: GraphSim, val me: Int): javax.swing.JPanel() {
     val logger = LoggerFactory.getLogger(javaClass)
@@ -41,6 +44,10 @@ class GraphPanel(val graphSim: GraphSim, val me: Int): javax.swing.JPanel() {
         background = Color.WHITE
 
         val g2 = g as Graphics2D
+        g2.setRenderingHint(
+                RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON
+        )
         val map = graphSim.map
         val sites = map.sites.map { it.id to it }.toMap()
 
@@ -53,8 +60,8 @@ class GraphPanel(val graphSim: GraphSim, val me: Int): javax.swing.JPanel() {
         val xAdjust = width / xSpan
         val yAdjust = height / ySpan
 
-        fun adjustX(x: Double) = ((x - minX) * xAdjust).toInt() + (WIDTH / 20)
-        fun adjustY(y: Double) = ((y - minY) * yAdjust).toInt() + (HEIGHT / 20)
+        fun adjustX(x: Double) = ((x - minX) * xAdjust).toInt() + (width / 20)
+        fun adjustY(y: Double) = ((y - minY) * yAdjust).toInt() + (height / 20)
 
         for(river in map.rivers) {
             g2.stroke = BasicStroke(5.0f)

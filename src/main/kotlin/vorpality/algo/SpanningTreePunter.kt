@@ -6,6 +6,7 @@ import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import toools.set.IntArrayWrappingIntSet
 import toools.set.IntSet
+import toools.set.IntSets
 import vorpality.protocol.ClaimMove
 import vorpality.protocol.Move
 import vorpality.protocol.PassMove
@@ -91,6 +92,16 @@ class SpanningTreePunter : AbstractPunter() {
 
             val rnd = ThreadLocalRandom.current()
 
+            val ourEdges = state.ownerColoring.filter { it.value == me }.keys.toIntSet()
+            val ourVertices = ourEdges.flatMap { graph.edgeVertices(it.value).toList() }.toIntSet()
+
+            fun Grph.findPath(v0: Int, v1: Int) =
+                    when {
+                        v0 in ourVertices -> findPathFromSources(ourVertices, v1)
+                        v1 in ourVertices -> findPathFromSources(ourVertices, v0)
+                        else -> getShortestPath(v0, v1)
+                    }
+
             if (minePairs.isEmpty()) {
 
                 var newPairs = graph
@@ -117,6 +128,7 @@ class SpanningTreePunter : AbstractPunter() {
 
                     newPairs = graph
                             .connectedComponents
+                            .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
                             .asSequence()
                             .map { graph.getSubgraphInducedByVertices(it) to it.pickRandomElement(rnd) }
                             .map { (scc, from) -> scc to (from to scc.vertices.pickRandomElementIfNotEmpty(rnd, from, false)) }
@@ -165,7 +177,7 @@ class SpanningTreePunter : AbstractPunter() {
                     .getSubgraphInducedByVertices(scc)
                     .spanningTree
 
-            val (from, to) = if (rnd.nextBoolean()) {
+            val (from, to) = if (rnd.nextBoolean() || mineColoring[activePath.first] == MINE_COLOR) {
                 activePath.first to activePath.second
             } else {
                 activePath.second to activePath.first
