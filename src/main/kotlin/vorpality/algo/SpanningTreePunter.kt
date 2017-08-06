@@ -127,6 +127,13 @@ class SpanningTreePunter : AbstractPunter() {
             val ourEdgesFirstPriority = NumericalProperty(null, 32, 1).apply { ourEdges.forEach { setValue(it.value, 0) } }
             val ourVertices = ourEdges.flatMap { graph.edgeVertices(it.value).toList() }.toIntSet()
 
+            val ourGraph = graph.getSubgraphInducedByEdges(ourEdges)
+            val currentScore = ourGraph.vertices.map { (v) ->
+                mines.filter { ourGraph.containsVertex(it) && ourGraph.containsAPath(it, v) }.sumBy { scoring[it to v] ?: 0 }
+            }.sum()
+
+            logger.info("Our current score is: $currentScore")
+
             if (minePairs.isEmpty()) {
 
                 var newPairs = graph
