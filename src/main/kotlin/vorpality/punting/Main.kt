@@ -110,10 +110,13 @@ inline fun <reified T : Jsonable> readJsonable(sin: Reader): T {
         logger.info("-> $length:$content")
     }
 
-    logger.info("Parsing on")
-    val result = JsonObject(content).toJsonable<T>()
-    logger.info("Parsing off")
-    return result
+    logger.info("JsonObject on")
+    val result = JsonObject(content)
+    logger.info("JsonObject off")
+    logger.info("toJsonable on")
+    val result2 = result.toJsonable<T>()
+    logger.info("toJsonable off")
+    return result2
 }
 
 inline fun Jsonable.writeJsonable(sout: PrintWriter) {
@@ -241,6 +244,13 @@ data class Message(
         override val dataklass: KClass<Message> get() = throw NotImplementedError()
 
         override fun fromJson(json: JsonObject): Message? {
+            return when {
+                json.containsKey("turn") -> Message(turn = json.toJsonable())
+                json.containsKey("end") -> Message(end = json.toJsonable())
+                json.containsKey("setupData") -> Message(setupData = json.toJsonable())
+                json.containsKey("timeout") -> Message(timeout = json.toJsonable())
+                else -> throw IllegalArgumentException("$json")
+            }
             return tryOrNull {
                 Message(turn = json.toJsonable())
             } ?: tryOrNull {
@@ -249,7 +259,7 @@ data class Message(
                 Message(setupData = json.toJsonable())
             } ?: tryOrNull {
                 Message(timeout = json.toJsonable())
-            } ?: throw IllegalArgumentException("${json}")
+            } ?: throw IllegalArgumentException("$json")
         }
     }
 }
