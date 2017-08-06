@@ -95,7 +95,7 @@ class SpanningTreePunter : AbstractPunter() {
             val ourEdges = state.ownerColoring.filter { it.value == me }.keys.toIntSet()
 
             val ourEdgesFirstPriority = NumericalProperty(null, 32, 1).apply { ourEdges.forEach { setValue(it.value, 0) }}
-            val ourVertices = ourEdges.flatMapTo(hashSetOf()){ graph.edgeVertices(it.value).toList() }
+            val ourVertices = ourEdges.flatMap { graph.edgeVertices(it.value).toList() }.toIntSet()
 
             if (minePairs.isEmpty()) {
 
@@ -214,7 +214,7 @@ class SpanningTreePunter : AbstractPunter() {
         }
     }
 
-    private fun sortMinePairs(ourVertices: Set<Int>) {
+    private fun sortMinePairs(ourVertices: IntSet) {
         // Sort mine pairs by their closeness to our vertices
         val groups = minePairs.groupBy { (from, to) ->
             if (from in ourVertices && to in ourVertices) {
