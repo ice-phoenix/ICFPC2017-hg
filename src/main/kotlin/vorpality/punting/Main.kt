@@ -210,9 +210,13 @@ fun <T> tryOrNull(body: () -> T) = try {
     null
 }
 
-data class Message(val turn: GameTurnMessage? = null, val end: GameResult? = null, val setupData: SetupData? = null) : Jsonable {
+data class Message(
+        val turn: GameTurnMessage? = null,
+        val end: GameResult? = null,
+        val setupData: SetupData? = null,
+        val timeout: Timeout? = null) : Jsonable {
     override fun toJson(): JsonObject {
-        return turn?.toJson() ?: end?.toJson() ?: setupData?.toJson() ?: throw IllegalStateException()
+        return turn?.toJson() ?: end?.toJson() ?: setupData?.toJson() ?: timeout?.toJson() ?: throw IllegalStateException()
     }
 
     companion object : JsonableCompanion<Message> {
@@ -225,7 +229,9 @@ data class Message(val turn: GameTurnMessage? = null, val end: GameResult? = nul
                 Message(end = json.toJsonable())
             } ?: tryOrNull {
                 Message(setupData = json.toJsonable())
-            } ?: throw IllegalArgumentException()
+            } ?: tryOrNull {
+                Message(timeout = json.toJsonable())
+            } ?: throw IllegalArgumentException("${json}")
         }
     }
 }
@@ -268,6 +274,10 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
         res = serverMessage.end
         if (res != null) break
 
+        if(serverMessage.timeout != null) {
+            logger.info("timeout", Exception())
+            continue
+        }
         val gtm = serverMessage.turn ?: throw IllegalStateException()
 
         val step: Jsonable = try {
