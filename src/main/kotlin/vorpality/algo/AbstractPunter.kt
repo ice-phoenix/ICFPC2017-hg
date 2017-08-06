@@ -24,8 +24,8 @@ fun Grph.calcScores(mines: IntSet): Map<Pair<Int, Int>, Int> {
     val score = mutableMapOf<Pair<Int, Int>, Int>()
     val bfs = mines.map { (mine) -> bfs(mine) }
 
-    for((i, mine) in mines.withIndex()) {
-        for((j, dist) in bfs[i].distances.withIndex()) if(dist != -1) {
+    for ((i, mine) in mines.withIndex()) {
+        for ((j, dist) in bfs[i].distances.withIndex()) if (dist != -1) {
             score[mine.value to j] = dist * dist
         }
     }
@@ -81,15 +81,9 @@ abstract class AbstractPunter : Punter {
             originalGraph = graph.clone()
             scoring = originalGraph.calcScores(mineColoring.asSequence()
                     .filter { (_, v) -> v == MINE_COLOR }
-                    .map{ (k, _) -> k}
+                    .map { (k, _) -> k }
                     .toIntSet())
-        }
 
-        init {
-            scoring = originalGraph.calcScores(mineColoring.asSequence()
-                    .filter { (_, v) -> v == MINE_COLOR }
-                    .map{ (k, _) -> k}
-                    .toIntSet())
         }
 
         override fun toJson(): JsonObject {
@@ -114,7 +108,6 @@ abstract class AbstractPunter : Punter {
 
         }
     }
-
 
 
     override var me: Int = -1
@@ -143,7 +136,7 @@ abstract class AbstractPunter : Punter {
         credit = if (data.settings?.getBoolean("splurges") ?: false) -1 else Int.MIN_VALUE
         state = State(data)
 
-        logger.info("Graph is: ${state.graph.toGrphText()}")
+        //logger.info("Graph is: ${state.graph.toGrphText()}")
     }
 
 }

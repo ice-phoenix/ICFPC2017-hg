@@ -2,8 +2,11 @@ package vorpality.algo
 
 import com.carrotsearch.hppc.cursors.IntCursor
 import grph.Grph
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import toools.set.IntHashSet
 import toools.set.IntSet
+import kotlin.system.measureTimeMillis
 
 fun<T> Pair<T, T>.asIterable() = Iterable { object: Iterator<T> {
     var ix = 0
@@ -31,4 +34,13 @@ fun Grph.edgeVertices(e: Int): Pair<Int, Int> {
     val fst = getOneVertex(e)
     val snd = getTheOtherVertex(e, fst)
     return Pair(fst, snd)
+}
+
+object TimeMeasure
+
+inline fun<T> measureAndLog(prefix: String, log: Logger = LoggerFactory.getLogger(TimeMeasure.javaClass), body: () -> T): T {
+    var t: T? = null
+    val time = measureTimeMillis { t = body() }
+    log.info("$prefix: $time ms")
+    return t!!
 }
