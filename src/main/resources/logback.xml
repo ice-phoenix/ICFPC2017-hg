@@ -3,7 +3,7 @@
         <target>System.err</target>
         <encoder>
             <pattern>
-                %-4relative [%thread] %-5level %logger{35} - %msg %n
+                %-8relative [%thread] %-5level %logger{35} - %msg %n
             </pattern>
         </encoder>
     </appender>

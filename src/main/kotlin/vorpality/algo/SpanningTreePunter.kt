@@ -9,6 +9,7 @@ import toools.set.IntArrayWrappingIntSet
 import toools.set.IntSet
 import toools.set.IntSets
 import vorpality.protocol.*
+import vorpality.punting.GlobalSettings
 import vorpality.util.tryToJson
 import java.util.concurrent.ThreadLocalRandom
 
@@ -32,9 +33,10 @@ class SpanningTreePunter : AbstractPunter() {
                 }
             }
 
-            minePairs = paths.toList()
-                    .sortedBy { it.second }
-                    .map { it.first }
+            minePairs = paths
+                    .asSequence()
+                    .sortedBy { it.value }
+                    .map { it.key }
                     .toMutableList()
         }
     }
@@ -75,14 +77,20 @@ class SpanningTreePunter : AbstractPunter() {
                 EMPTY_COLOR == ownerColoring.getOrDefault(edge, EMPTY_COLOR)
             }
 
-    private fun score(grph: Grph) = grph.vertices.map { (v) ->
-        mines.filter { grph.containsVertex(it) && grph.containsAPath(it, v) }.sumBy { state.scoring[it to v] ?: 0 }
-    }.sum()
+    private fun score(grph: Grph) = grph
+            .vertices
+            .asSequence()
+            .map { (v) ->
+                mines.asSequence()
+                        .filter { grph.containsVertex(it) && grph.containsAPath(it, v) }
+                        .sumBy { state.scoring[it to v] ?: 0 }
+            }.sum()
 
     private fun scoreIn(grph: Grph, vararg vs: Int) = vs.sumBy { v ->
-        mines.filter { grph.containsVertex(it) }.sumBy { state.scoring[it to v] ?: 0 }
+        mines.asSequence()
+                .filter { grph.containsVertex(it) }
+                .sumBy { state.scoring[it to v] ?: 0 }
     }
-
 
     override fun step(moves: List<Move>): Move {
         with(state) {
@@ -124,37 +132,46 @@ class SpanningTreePunter : AbstractPunter() {
                 }
             }
 
-            logger.info("Mine pairs: $minePairs")
-
-            logger.info("Mine color: $mineColoring")
-            logger.info("Owner color: $ownerColoring")
+            if (GlobalSettings.logging) {
+                logger.info("Mine pairs: $minePairs")
+                logger.info("Mine color: $mineColoring")
+                logger.info("Owner color: $ownerColoring")
+            }
 
             val rnd = ThreadLocalRandom.current()
 
             val ourEdges = state.ownerColoring.filter { it.value == me }.keys.toIntSet()
 
-            val ourEdgesFirstPriority = NumericalProperty(null, 32, 1).apply { ourEdges.forEach { setValue(it.value, 0) } }
-            val ourVertices = ourEdges.flatMap { graph.edgeVertices(it.value).toList() }.toIntSet()
+            val ourEdgesFirstPriority = NumericalProperty(null, 32, 1)
+                    .apply { ourEdges.forEach { setValue(it.value, 0) } }
+            val ourVertices = ourEdges.asSequence()
+                    .flatMap { graph.edgeVertices(it.value).asIterable().asSequence() }
+                    .toIntSet()
 
             val ourGraph = graph.getSubgraphInducedByEdges(ourEdges)
             currentScore = score(ourGraph)
 
-            logger.info("Our current score is: $currentScore")
+            if (GlobalSettings.logging) {
+                logger.info("Our current score is: $currentScore")
+            }
 
             if (minePairs.isEmpty()) {
 
                 var newPairs = graph
                         .connectedComponents
                         .asSequence()
-                        // XXX: belyaev: did I get it correctly?
                         .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
                         .map { graph.getSubgraphInducedByVertices(it) }
-                        .map { scc -> scc to
-                                (mines.filter { scc.containsVertex(it) }.maxBy { scoreIn(ourGraph, it) }
-                                        ?: scc.vertices.pickRandomElement(rnd)) }
-                        .map { (scc, from) -> scc to
-                                (from to
-                                        scc.vertices.maxBy { scoreIn(ourGraph, from, it.value) }!!.value) }
+                        .map { scc ->
+                            scc to
+                                    (mines.filter { scc.containsVertex(it) }.maxBy { scoreIn(ourGraph, it) }
+                                            ?: scc.vertices.pickRandomElement(rnd))
+                        }
+                        .map { (scc, from) ->
+                            scc to
+                                    (from to
+                                            scc.vertices.maxBy { scoreIn(ourGraph, from, it.value) }!!.value)
+                        }
                         .filter { (_, p) -> p.first != p.second }
                         .filter { (scc, p) ->
                             scc.spanningTree
@@ -180,7 +197,7 @@ class SpanningTreePunter : AbstractPunter() {
                                         IntSets.intersection(it, ourVertices)
                                                 .maxBy { scoreIn(ourGraph, it.value) }
                             }
-                            .map { (scc, v) -> v?.let{ scc to v.value } }
+                            .map { (scc, v) -> v?.let { scc to v.value } }
                             .filterNotNull()
                             .map { (scc, from) ->
                                 scc to
@@ -229,6 +246,8 @@ class SpanningTreePunter : AbstractPunter() {
 
                 minePairs.clear()
 
+                logger.info("Retrying with non-empty mine pairs")
+
                 return step(emptyList())
             }
 
@@ -238,26 +257,26 @@ class SpanningTreePunter : AbstractPunter() {
                     .getSubgraphInducedByVertices(scc)
                     .spanningTree
 
-            val noShuffle = when(mineColoring[activePath.first] to mineColoring[activePath.second]) {
+            val noShuffle = when (mineColoring[activePath.first] to mineColoring[activePath.second]) {
                 Pair(MINE_COLOR, MINE_COLOR) -> // first build at least one edge near each mine, then proceed
                     when {
-                        // first is already ours, start with second => shuffle
+                    // first is already ours, start with second => shuffle
                         activePath.first in ourVertices && activePath.second !in ourVertices -> false
-                        // second is already ours, start with first => no shuffle
+                    // second is already ours, start with first => no shuffle
                         activePath.second in ourVertices && activePath.first !in ourVertices -> true
                         else -> rnd.nextBoolean()
                     }
                 Pair(EMPTY_COLOR, EMPTY_COLOR) -> // building edges near non-mine targets is pointless
                     when {
-                        // first is already ours, pick it => no shuffle
+                    // first is already ours, pick it => no shuffle
                         activePath.first in ourVertices && activePath.second !in ourVertices -> true
-                        // second is already ours, pick it => shuffle
+                    // second is already ours, pick it => shuffle
                         activePath.second in ourVertices && activePath.first !in ourVertices -> false
                         else -> rnd.nextBoolean()
                     }
-                // first is a mine, start with it => no shuffle
+            // first is a mine, start with it => no shuffle
                 Pair(MINE_COLOR, EMPTY_COLOR) -> true
-                // second is a mine, start with it => shuffle
+            // second is a mine, start with it => shuffle
                 else -> false
             }
 
@@ -270,7 +289,9 @@ class SpanningTreePunter : AbstractPunter() {
             val currentPath = spanningTree
                     .getShortestPath(from, to, ourEdgesFirstPriority)
 
-            logger.info("Path: $currentPath")
+            if (GlobalSettings.logging) {
+                logger.info("Path: $currentPath")
+            }
 
             val selectedPaths = currentPath.isInteresting(
                     spanningTree,
@@ -307,6 +328,9 @@ class SpanningTreePunter : AbstractPunter() {
                 sortMinePairs(ourVertices)
 
                 // retry again
+
+                logger.info("Retrying with completed path")
+
                 step(emptyList())
             }
         }

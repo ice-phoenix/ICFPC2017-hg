@@ -36,6 +36,8 @@ object GlobalSettings {
     var MODE = Mode.OFFLINE
 
     val logger: Logger = LoggerFactory.getLogger("Global")
+
+    const val logging = false
 }
 
 class Arguments(p: ArgParser) {
@@ -89,24 +91,34 @@ inline fun <reified T : Jsonable> readJsonable(sin: Reader): T {
 
     val contentAsArray = CharArray(length)
 
+    logger.info("Reading on")
+
     var start = 0
     while (start < length) {
         val read = sin.read(contentAsArray, start, length - start)
         start += read
     }
 
-    val content = contentAsArray.joinToString("")
+    logger.info("Reading off")
 
-    logger.info("-> $length:$content")
+    val content = String(contentAsArray)
 
+    if (GlobalSettings.logging) {
+        logger.info("-> $length:$content")
+    }
+
+    logger.info("Parsing on")
     val result = JsonObject(content).toJsonable<T>()
+    logger.info("Parsing off")
     return result
 }
 
 inline fun Jsonable.writeJsonable(sout: PrintWriter) {
     val output = prepare()
 
-    logger.info("<- ${output.length}:$output")
+    if (GlobalSettings.logging) {
+        logger.info("<- ${output.length}:$output")
+    }
 
     sout.print("${output.length}:$output")
     sout.flush()
@@ -114,6 +126,8 @@ inline fun Jsonable.writeJsonable(sout: PrintWriter) {
 
 fun main(arguments: Array<String>) {
     val logger = LoggerFactory.getLogger("Main")
+
+    logger.info("Starting")
 
     val args = Arguments(ArgParser(arguments))
 
@@ -136,7 +150,7 @@ fun main(arguments: Array<String>) {
 
 private fun runFileMode(args: Arguments, punter: Punter, logger: Logger) {
     val map: Map = JsonObject(File(args.input).readText()).toJsonable()
-    logger.info("map = ${map}")
+    // logger.info("map = ${map}")
     val taken: MutableMap<River, Int> = mutableMapOf()
     val adversary = RandomPunter()
     punter.setup(SetupData(0, 2, map, null))
@@ -171,13 +185,14 @@ private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
     val handshakeResponse: HandshakeResponse = readJsonable(sin)
     assert(args.name == handshakeResponse.you)
 
+    logger.info("TIMING START")
+
     val message: Message = readJsonable(sin)
 
     // 1. Stuff
     if (message.setupData != null) {
         punter.setup(message.setupData)
         Ready(punter.me, state = punter.currentState).writeJsonable(sout)
-        return
     } else if (message.turn != null) {
         try {
             val gtm = message.turn
@@ -187,7 +202,6 @@ private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
         } catch (ex: Exception) {
             PassMove(punter.me, state = punter.currentState).writeJsonable(sout)
         }
-        return
     } else if (message.end != null) {
         val res = message.end
         message.end.state?.let { punter.currentState = it }
@@ -198,6 +212,10 @@ private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
         logger.info("My score: $myScore")
         logger.info("Did we win? (${if (myScore == maxScore) "Oh yeah!" else "Nope :-("})")
     }
+
+    logger.info("TIMING END")
+
+    return
 
 }
 
@@ -251,9 +269,9 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
 
     val setupData: SetupData = readJsonable(sin)
 
-    val sim = if(args.gui) GraphSim(setupData.map) else null
+    val sim = if (args.gui) GraphSim(setupData.map) else null
     punter.setup(setupData)
-    val gui = if(args.gui) {
+    val gui = if (args.gui) {
         GraphPanel(sim!!, punter, setupData.punters).apply {
             showMe()
             repaint()
@@ -278,7 +296,7 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
         val gtm = serverMessage.turn ?: throw IllegalStateException()
 
         val step: Jsonable = try {
-            for(move in gtm.move.moves) sim?.handleMove(move)
+            for (move in gtm.move.moves) sim?.handleMove(move)
             gui?.repaint()
 
             punter.step(gtm.move.moves)
@@ -300,7 +318,7 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
     logger.info("My score: $myScore")
     logger.info("Did we win? (${if (myScore == maxScore) "Oh yeah!" else "Nope :-("})")
 
-    if(args.results != "") {
+    if (args.results != "") {
         File(args.results).appendText(
                 JsonObject("score" to myScore, "win" to (myScore == maxScore), "url" to args.url, "port" to args.port).encodePrettily() + ",\n"
         )
