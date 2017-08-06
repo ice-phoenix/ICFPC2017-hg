@@ -8,6 +8,14 @@ import javax.swing.SwingUtilities
 import java.awt.RenderingHints
 import java.awt.geom.Rectangle2D
 
+import vorpality.algo.Punter
+import com.sun.awt.SecurityWarning.getSize
+import java.awt.font.TextAttribute
+import sun.font.FontFamily.getFamily
+import java.util.HashMap
+
+
+
 private val palette = mapOf(
         0 to Color.RED,
         1 to Color.BLUE,
@@ -32,7 +40,7 @@ private val palette = mapOf(
         20 to Color.ORANGE.brighter().brighter()
 )
 
-class GraphPanel(val graphSim: GraphSim, val me: Int, val punters: Int): javax.swing.JPanel() {
+class GraphPanel(val graphSim: GraphSim, val punter: Punter, val punters: Int): javax.swing.JPanel() {
     val logger = LoggerFactory.getLogger(javaClass)
 
     fun circle(x: Int, y: Int, radius: Int) =
@@ -67,7 +75,7 @@ class GraphPanel(val graphSim: GraphSim, val me: Int, val punters: Int): javax.s
         for(river in map.rivers) {
             g2.stroke = BasicStroke(5.0f)
             val owner = graphSim.owners.getOrDefault(river.sorted(), -1)
-            if(owner == me) g2.color = Color.GREEN
+            if(owner == punter.me) g2.color = Color.GREEN
             else g2.color = palette.getOrDefault(owner, Color.BLACK)
 
             g2.drawLine(
@@ -95,11 +103,23 @@ class GraphPanel(val graphSim: GraphSim, val me: Int, val punters: Int): javax.s
             val cellWidth = width.toFloat() / punters
 
             (0 until punters).forEach {
-                g2.color = if(it == me) Color.GREEN else palette[it]
+                g2.color = if(it == punter.me) Color.GREEN else palette[it]
                 g2.fill(Rectangle2D.Float(it * cellWidth, height.toFloat() - legendHeight, cellWidth, legendHeight.toFloat()))
                 g2.color = Color.BLACK
                 g2.drawString("${it}", it * cellWidth + cellWidth/2, height.toFloat() - legendHeight - 2)
             }
+        }
+
+        punter.currentScore?.let {
+            g2.color = Color.BLACK
+            val attributes = HashMap<TextAttribute, Any>()
+
+            attributes.put(TextAttribute.FAMILY, g2.font.getFamily())
+            attributes.put(TextAttribute.WEIGHT, TextAttribute.WEIGHT_SEMIBOLD)
+            attributes.put(TextAttribute.SIZE, (g2.font.getSize() * 1.4).toInt())
+            g2.font = Font.getFont(attributes)
+
+            g2.drawString("${punter.currentScore}", 5.0f, height.toFloat() - legendHeight - 20)
         }
 
 //        for(river in map.rivers) {

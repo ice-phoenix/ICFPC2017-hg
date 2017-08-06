@@ -20,13 +20,29 @@ const val MINE_COLOR = 1
 fun <T> decltype(witness: () -> T): KType = witness.reflect()!!.returnType
 fun <T> Any?.tryFromJsonWithTypeOf(witness: () -> T) = tryFromJson(decltype(witness)) as T
 
+fun Grph.calcScores(mines: IntSet): Map<Pair<Int, Int>, Int> {
+    val score = mutableMapOf<Pair<Int, Int>, Int>()
+    val bfs = mines.map { (mine) -> bfs(mine) }
+
+    for((i, mine) in mines.withIndex()) {
+        for((j, dist) in bfs[i].distances.withIndex()) if(dist != -1) {
+            score[mine.value to j] = dist * dist
+        }
+    }
+
+    return score
+}
+
 abstract class AbstractPunter : Punter {
+
+    override var currentScore: Int? = null
 
     val logger: Logger = LoggerFactory.getLogger(javaClass)
 
     protected class State(val graph: Grph,
                           val ownerColoring: MutableMap<Int, Int> = mutableMapOf(),
-                          val mineColoring: MutableMap<Int, Int> = mutableMapOf()) : Jsonable {
+                          val mineColoring: MutableMap<Int, Int> = mutableMapOf(),
+                          var scoring: Map<Pair<Int, Int>, Int> = mutableMapOf()) : Jsonable {
         constructor(data: SetupData) : this(InMemoryGrph()) {
             with(data.map) {
                 for ((id) in sites) {
@@ -39,6 +55,17 @@ abstract class AbstractPunter : Punter {
                     mineColoring[mine] = MINE_COLOR
                 }
             }
+            scoring = graph.calcScores(mineColoring.asSequence()
+                    .filter { (_, v) -> v == MINE_COLOR }
+                    .map{ (k, _) -> k}
+                    .toIntSet())
+        }
+
+        init {
+            scoring = graph.calcScores(mineColoring.asSequence()
+                    .filter { (_, v) -> v == MINE_COLOR }
+                    .map{ (k, _) -> k}
+                    .toIntSet())
         }
 
         override fun toJson(): JsonObject {
@@ -52,7 +79,8 @@ abstract class AbstractPunter : Punter {
             return JsonObject(
                     "graph" to edgeMap.tryToJson(),
                     "mineColoring" to mineColoring.tryToJson(),
-                    "ownerColoring" to ownerColoring.tryToJson()
+                    "ownerColoring" to ownerColoring.tryToJson(),
+                    "scoring" to scoring.tryToJson()
             )
         }
 
@@ -70,31 +98,15 @@ abstract class AbstractPunter : Punter {
                 return State(
                         graph = grph,
                         mineColoring = json.get("mineColoring").tryFromJsonWithTypeOf { mutableMapOf(1 to 2) },
-                        ownerColoring = json.get("ownerColoring").tryFromJsonWithTypeOf { mutableMapOf(1 to 2) }
+                        ownerColoring = json.get("ownerColoring").tryFromJsonWithTypeOf { mutableMapOf(1 to 2) },
+                        scoring = json.get("scoring").tryFromJsonWithTypeOf { mutableMapOf((1 to 2) to 3) }
                 )
             }
 
         }
     }
 
-    fun Grph.calcScores(mines: IntSet): Map<Pair<Int, Int>, Int> {
-        val score = mutableMapOf<Pair<Int, Int>, Int>()
-        val bfs = bfs(mines)
 
-        for((mine) in mines) {
-            for((index, dist) in bfs[mine].distances.withIndex()) if(dist != -1) {
-                score[mine to index] = dist * dist
-            }
-        }
-
-        for((mine) in mines) {
-            for((v) in bfs[mine].visitOrder) {
-                score[mine to v] = score[mine to v]!! + score.getOrDefault(mine to bfs[mine].predecessors[v], 0)
-            }
-        }
-
-        return score
-    }
 
     override var me: Int = -1
     var credit: Int = Int.MIN_VALUE
@@ -108,13 +120,14 @@ abstract class AbstractPunter : Punter {
         }
     protected lateinit var state: State
 
-    protected val mines: IntArray
-        get() = with(state) {
+    protected val mines: IntArray by lazy {
+        with(state) {
             mineColoring
                     .filter { it.value == MINE_COLOR }
                     .map { it.key }
                     .toIntArray()
         }
+    }
 
     override fun setup(data: SetupData) {
         me = data.punter

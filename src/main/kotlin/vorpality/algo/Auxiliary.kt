@@ -11,6 +11,9 @@ fun<T> Pair<T, T>.asIterable() = Iterable { object: Iterator<T> {
     override fun hasNext() = ix < 2
 } }
 
+@Suppress("UNCHECKED_CAST", "NOTHING_TO_INLINE")
+inline fun<T> Any?.uncheckedCast() = this as T
+
 operator fun IntCursor.component1() = value
 
 fun Collection<Int>.toIntSet() = IntHashSet().apply { this@toIntSet.forEach{ add(it) } }

@@ -6,6 +6,8 @@ import vorpality.protocol.PassMove
 import vorpality.protocol.SetupData
 
 class Passer(override var me: Int = -1, override var currentState: JsonObject = JsonObject()) : Punter {
+    override val currentScore: Int? get() = null
+
     override fun step(moves: List<Move>): Move {
         return PassMove(me)
     }
