@@ -187,7 +187,8 @@ fun warmUp(punter: Punter) {
                 }
             }
 """
-    ).toJsonable()
+    ).toJsonable<GameTurnMessage>()
+    readJsonable<GameTurnMessage>(StringReader(gtm.toJson().encode().let { "${it.length}:$it" }))
 
     punter.step(gtm.move.moves)
 
@@ -198,7 +199,8 @@ fun warmUp() {
     warmUp(RandomPunter())
     warmUp(Passer())
 
-    run<Ready> { Ready(0, listOf(Future(0, 3), Future(0, 5)), JsonObject("{}")).toJson().toJsonable<Ready>().toJson().toJsonable<Ready>() }
+    readJsonable<Ready>(StringReader(Ready(0, listOf(Future(0, 3), Future(0, 5)), JsonObject("{}")).toJson().encode().let { "${it.length}:$it" }))
+    readJsonable<HandshakeResponse>(StringReader(HandshakeResponse("lorem ipsum").toJson().encode().let { "${it.length}:$it" }))
 
 }
 
