@@ -100,7 +100,7 @@ abstract class AbstractPunter : Punter {
     var credit: Int = Int.MIN_VALUE
 
     override var currentState: JsonObject
-        get() = state.toJson().apply { put("me", me); put("credit", credit) }
+        get() = state.toJson().apply { put("me", me).put("credit", credit) }
         set(value) {
             me = value.getInteger("me")
             credit = value.getInteger("credit")
