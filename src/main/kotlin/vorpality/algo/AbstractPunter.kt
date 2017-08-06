@@ -1,10 +1,13 @@
 package vorpality.algo
 
 import grph.Grph
+import grph.algo.search.BFSAlgorithm
+import grph.algo.search.GraphSearchListener
 import grph.in_memory.InMemoryGrph
 import io.vertx.core.json.JsonObject
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import toools.set.IntSet
 import vorpality.protocol.SetupData
 import vorpality.util.*
 import kotlin.reflect.KClass
@@ -72,6 +75,25 @@ abstract class AbstractPunter : Punter {
             }
 
         }
+    }
+
+    fun Grph.calcScores(mines: IntSet): Map<Pair<Int, Int>, Int> {
+        val score = mutableMapOf<Pair<Int, Int>, Int>()
+        val bfs = bfs(mines)
+
+        for((mine) in mines) {
+            for((index, dist) in bfs[mine].distances.withIndex()) if(dist != -1) {
+                score[mine to index] = dist * dist
+            }
+        }
+
+        for((mine) in mines) {
+            for((v) in bfs[mine].visitOrder) {
+                score[mine to v] = score[mine to v]!! + score.getOrDefault(mine to bfs[mine].predecessors[v], 0)
+            }
+        }
+
+        return score
     }
 
     override var me: Int = -1

@@ -13,7 +13,7 @@ class NaiveScoreDrivenPunter: AbstractPunter() {
 
     val ownedVertices: MutableSet<Int> = mutableSetOf()
 
-    fun calcScore(vertice: Int) {
+    fun calcScore(vertice: Grph) {
 
     }
 

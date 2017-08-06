@@ -1,5 +1,6 @@
 package vorpality.algo
 
+import com.carrotsearch.hppc.cursors.IntCursor
 import grph.Grph
 import toools.set.IntHashSet
 import toools.set.IntSet
@@ -9,6 +10,8 @@ fun<T> Pair<T, T>.asIterable() = Iterable { object: Iterator<T> {
     override fun next(): T = when(ix) { 0 -> first; else -> second }
     override fun hasNext() = ix < 2
 } }
+
+operator fun IntCursor.component1() = value
 
 fun Collection<Int>.toIntSet() = IntHashSet().apply { this@toIntSet.forEach{ add(it) } }
 fun Sequence<Int>.toIntSet() = IntHashSet().apply { this@toIntSet.forEach{ add(it) } }
