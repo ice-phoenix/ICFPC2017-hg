@@ -11,10 +11,7 @@ import vorpality.protocol.Map
 import vorpality.punting.GlobalSettings.logger
 import vorpality.sim.GraphPanel
 import vorpality.sim.GraphSim
-import vorpality.util.JsonObject
-import vorpality.util.Jsonable
-import vorpality.util.JsonableCompanion
-import vorpality.util.toJsonable
+import vorpality.util.*
 import java.io.*
 import java.net.Socket
 import java.util.concurrent.ThreadLocalRandom
@@ -37,7 +34,7 @@ object GlobalSettings {
 
     val logger: Logger = LoggerFactory.getLogger("Global")
 
-    const val logging = false
+    const val logging = true
 }
 
 class Arguments(p: ArgParser) {
@@ -75,6 +72,8 @@ class Arguments(p: ArgParser) {
             .default("")
 
     val gui: Boolean by p.flagging("Enable GUI").default(false)
+
+    val no_splurging: Boolean by p.flagging("No splurge moves").default(false)
 }
 
 inline fun <reified T : Jsonable> readJsonable(sin: Reader): T {
@@ -268,6 +267,8 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
     // 1. Setup
 
     val setupData: SetupData = readJsonable(sin)
+
+    if(args.no_splurging) setupData.settings?.set("splurges", false)
 
     val sim = if (args.gui) GraphSim(setupData.map) else null
     punter.setup(setupData)
