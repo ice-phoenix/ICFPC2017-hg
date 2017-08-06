@@ -96,14 +96,7 @@ class SpanningTreePunter : AbstractPunter() {
             val ourEdges = state.ownerColoring.filter { it.value == me }.keys.toIntSet()
 
             val ourEdgesFirstPriority = NumericalProperty(null, 32, 1).apply { ourEdges.forEach { setValue(it.value, 0) }}
-            val ourVertices = ourEdges.flatMap { graph.edgeVertices(it.value).toList() }.toIntSet()
-
-            fun Grph.findPath(v0: Int, v1: Int) =
-                    when {
-                        v0 in ourVertices -> findPathFromSources(ourVertices, v1)
-                        v1 in ourVertices -> findPathFromSources(ourVertices, v0)
-                        else -> getShortestPath(v0, v1)
-                    }
+            val ourVertices = ourEdges.flatMapTo(hashSetOf()){ graph.edgeVertices(it.value).toList() }
 
             if (minePairs.isEmpty()) {
 
@@ -181,13 +174,18 @@ class SpanningTreePunter : AbstractPunter() {
                     .getSubgraphInducedByVertices(scc)
                     .spanningTree
 
-            val shuffle = when {
-                mineColoring[activePath.first] == mineColoring[activePath.second] -> rnd.nextBoolean()
+            val noShuffle = when {
+                mineColoring[activePath.first] == mineColoring[activePath.second] ->
+                    when {
+                        activePath.first in ourVertices && activePath.second !in ourVertices -> false
+                        activePath.second in ourVertices && activePath.first !in ourVertices -> true
+                        else -> rnd.nextBoolean()
+                    }
                 mineColoring[activePath.first] == MINE_COLOR -> true
                 else -> false
             }
 
-            val (from, to) = if (shuffle) {
+            val (from, to) = if (noShuffle) {
                 activePath.first to activePath.second
             } else {
                 activePath.second to activePath.first

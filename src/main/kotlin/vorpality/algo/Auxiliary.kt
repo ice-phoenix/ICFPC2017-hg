@@ -4,6 +4,12 @@ import grph.Grph
 import toools.set.IntHashSet
 import toools.set.IntSet
 
+fun<T> Pair<T, T>.asIterable() = Iterable { object: Iterator<T> {
+    var ix = 0
+    override fun next(): T = when(ix) { 0 -> first; else -> second }
+    override fun hasNext() = ix < 2
+} }
+
 fun Collection<Int>.toIntSet() = IntHashSet().apply { this@toIntSet.forEach{ add(it) } }
 fun Sequence<Int>.toIntSet() = IntHashSet().apply { this@toIntSet.forEach{ add(it) } }
 
