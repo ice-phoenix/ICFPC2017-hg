@@ -6,41 +6,42 @@ import java.awt.geom.Ellipse2D
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
 import java.awt.RenderingHints
+import java.awt.geom.Rectangle2D
 
+private val palette = mapOf(
+        0 to Color.RED,
+        1 to Color.BLUE,
+        2 to Color.ORANGE,
+        3 to Color.YELLOW,
+        4 to Color.MAGENTA,
+        5 to Color.CYAN,
+        6 to Color.GRAY,
+        7 to Color.DARK_GRAY,
+        8 to Color.BLUE.darker().darker(),
+        9 to Color.RED.darker().darker(),
+        10 to Color.YELLOW.darker().darker(),
+        11 to Color.MAGENTA.darker().darker(),
+        12 to Color.CYAN.darker().darker(),
+        13 to Color.ORANGE.darker().darker(),
+        14 to Color.LIGHT_GRAY,
+        15 to Color.BLUE.brighter().brighter(),
+        16 to Color.RED.brighter().brighter(),
+        17 to Color.YELLOW.brighter().brighter(),
+        18 to Color.MAGENTA.brighter().brighter(),
+        19 to Color.CYAN.brighter().brighter(),
+        20 to Color.ORANGE.brighter().brighter()
+)
 
-
-class GraphPanel(val graphSim: GraphSim, val me: Int): javax.swing.JPanel() {
+class GraphPanel(val graphSim: GraphSim, val me: Int, val punters: Int): javax.swing.JPanel() {
     val logger = LoggerFactory.getLogger(javaClass)
-
-    val palette = mapOf(
-            0 to Color.GRAY,
-            1 to Color.BLUE,
-            2 to Color.RED,
-            3 to Color.YELLOW,
-            4 to Color.MAGENTA,
-            5 to Color.CYAN,
-            6 to Color.ORANGE,
-            7 to Color.DARK_GRAY,
-            8 to Color.BLUE.darker().darker(),
-            9 to Color.RED.darker().darker(),
-            10 to Color.YELLOW.darker().darker(),
-            11 to Color.MAGENTA.darker().darker(),
-            12 to Color.CYAN.darker().darker(),
-            13 to Color.ORANGE.darker().darker(),
-            14 to Color.LIGHT_GRAY,
-            15 to Color.BLUE.brighter().brighter(),
-            16 to Color.RED.brighter().brighter(),
-            17 to Color.YELLOW.brighter().brighter(),
-            18 to Color.MAGENTA.brighter().brighter(),
-            19 to Color.CYAN.brighter().brighter(),
-            20 to Color.ORANGE.brighter().brighter()
-    )
 
     fun circle(x: Int, y: Int, radius: Int) =
             Ellipse2D.Double(x.toDouble() - radius.toDouble()/2, y.toDouble() - radius.toDouble()/2, radius.toDouble(), radius.toDouble())
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
+        val legendHeight = 25
+
         background = Color.WHITE
 
         val g2 = g as Graphics2D
@@ -58,10 +59,10 @@ class GraphPanel(val graphSim: GraphSim, val me: Int): javax.swing.JPanel() {
         val xSpan = (maxX - minX) * 1.1
         val ySpan = (maxY - minY) * 1.1
         val xAdjust = width / xSpan
-        val yAdjust = height / ySpan
+        val yAdjust = (height - legendHeight) / ySpan
 
         fun adjustX(x: Double) = ((x - minX) * xAdjust).toInt() + (width / 20)
-        fun adjustY(y: Double) = ((y - minY) * yAdjust).toInt() + (height / 20)
+        fun adjustY(y: Double) = ((y - minY) * yAdjust).toInt() + ((height - legendHeight) / 20)
 
         for(river in map.rivers) {
             g2.stroke = BasicStroke(5.0f)
@@ -88,6 +89,17 @@ class GraphPanel(val graphSim: GraphSim, val me: Int): javax.swing.JPanel() {
             val site = sites[mine]!!
             g2.color = Color.RED
             g2.draw(circle(adjustX(site.x!!), adjustY(site.y!!), 5))
+        }
+
+        run { // Legend
+            val cellWidth = width.toFloat() / punters
+
+            (0 until punters).forEach {
+                g2.color = if(it == me) Color.GREEN else palette[it]
+                g2.fill(Rectangle2D.Float(it * cellWidth, height.toFloat() - legendHeight, cellWidth, legendHeight.toFloat()))
+                g2.color = Color.BLACK
+                g2.drawString("${it}", it * cellWidth + cellWidth/2, height.toFloat() - legendHeight - 2)
+            }
         }
 
 //        for(river in map.rivers) {
