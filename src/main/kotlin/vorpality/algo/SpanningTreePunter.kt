@@ -251,6 +251,8 @@ class SpanningTreePunter : AbstractPunter() {
                 return step(emptyList())
             }
 
+            minePairs = minePairs.dropWhile { it !== activePath }.toMutableList()
+
             val spanningTree = graph
                     .getSubgraphInducedByVertices(scc)
                     .spanningTree

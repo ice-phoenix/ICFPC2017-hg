@@ -1,6 +1,8 @@
 package vorpality.algo
 
 import grph.Grph
+import grph.algo.search.BFSAlgorithm
+import grph.algo.search.GraphSearchListener
 import grph.in_memory.InMemoryGrph
 import io.vertx.core.json.JsonObject
 import org.slf4j.Logger
@@ -32,6 +34,28 @@ fun Grph.calcScores(mines: IntSet): Map<Pair<Int, Int>, Int> {
     return score
 }
 
+object GrphJsoner {
+    fun toJson(graph: Grph): Any? {
+        val edges = graph.edges.toIntArray()
+        return edges
+                .asSequence()
+                .map { e -> e to graph.getOneVertex(e) }
+                .map { (e, from) -> e to (from to graph.getTheOtherVertex(e, from)) }
+                .toMap().tryToJson()
+    }
+
+    fun fromJson(js: Any?): Grph {
+        val grph = InMemoryGrph()
+
+        val edgeMap = js.tryFromJsonWithTypeOf { mutableMapOf(1 to (2 to 3)) }
+
+        for ((e, p) in edgeMap) {
+            grph.addSimpleEdge(p.first, e, p.second, false)
+        }
+        return grph
+    }
+}
+
 abstract class AbstractPunter : Punter {
 
     override var currentScore: Int? = null
@@ -39,6 +63,7 @@ abstract class AbstractPunter : Punter {
     val logger: Logger = LoggerFactory.getLogger(javaClass)
 
     protected class State(val graph: Grph,
+                          var originalGraph: Grph = graph,
                           val ownerColoring: MutableMap<Int, Int> = mutableMapOf(),
                           val mineColoring: MutableMap<Int, Int> = mutableMapOf(),
                           var scoring: Map<Pair<Int, Int>, Int> = mutableMapOf()) : Jsonable {
@@ -55,7 +80,8 @@ abstract class AbstractPunter : Punter {
                     mineColoring[mine] = MINE_COLOR
                 }
             }
-            scoring = graph.calcScores(
+            originalGraph = graph.clone()
+            scoring = originalGraph.calcScores(
                     mineColoring
                             .asSequence()
                             .filter { (_, v) -> v == MINE_COLOR }
@@ -65,7 +91,7 @@ abstract class AbstractPunter : Punter {
         }
 
         init {
-            scoring = graph.calcScores(
+            scoring = originalGraph.calcScores(
                     mineColoring
                             .asSequence()
                             .filter { (_, v) -> v == MINE_COLOR }
@@ -75,41 +101,22 @@ abstract class AbstractPunter : Punter {
         }
 
         override fun toJson(): JsonObject {
-            val edges = graph.edges.toIntArray()
-            val edgeMap = edges
-                    .asSequence()
-                    .map { e -> e to graph.getOneVertex(e) }
-                    .map { (e, from) -> e to (from to graph.getTheOtherVertex(e, from)) }
-                    .toMap()
-
             return JsonObject(
-                    "graph" to edgeMap.tryToJson(),
+                    "graph" to GrphJsoner.toJson(graph),
+                    "originalGraph" to GrphJsoner.toJson(originalGraph),
                     "mineColoring" to mineColoring.tryToJson(),
-                    "ownerColoring" to ownerColoring.tryToJson(),
-                    "scoring" to scoring.tryToJson()
+                    "ownerColoring" to ownerColoring.tryToJson()
             )
         }
 
         companion object : JsonableCompanion<State> {
             override val dataklass: KClass<State> = State::class
             override fun fromJson(json: JsonObject): State {
-                val grph = InMemoryGrph()
-
-                val edgeMap = json.get("graph")
-                        .tryFromJsonWithTypeOf { mutableMapOf(1 to (2 to 3)) }
-
-                for ((e, p) in edgeMap) {
-                    grph.addSimpleEdge(p.first, e, p.second, false)
-                }
-
                 return State(
-                        graph = grph,
-                        mineColoring = json.get("mineColoring")
-                                .tryFromJsonWithTypeOf { mutableMapOf(1 to 2) },
-                        ownerColoring = json.get("ownerColoring")
-                                .tryFromJsonWithTypeOf { mutableMapOf(1 to 2) },
-                        scoring = json.get("scoring")
-                                .tryFromJsonWithTypeOf { mutableMapOf((1 to 2) to 3) }
+                        graph = GrphJsoner.fromJson(json.get("graph")),
+                        originalGraph = GrphJsoner.fromJson(json.get("originalGraph")),
+                        mineColoring = json.get("mineColoring").tryFromJsonWithTypeOf { mutableMapOf(1 to 2) },
+                        ownerColoring = json.get("ownerColoring").tryFromJsonWithTypeOf { mutableMapOf(1 to 2) }
                 )
             }
 

@@ -58,3 +58,4 @@ data class GameTurnMessage(val move: GameTurn, val state: JsonObject? = null) : 
 data class Score(val punter: PunterId, val score: Int) : Jsonable
 data class GameStop(val moves: List<Move>, val scores: List<Score>) : Jsonable
 data class GameResult(val stop: GameStop, val state: JsonObject? = null) : Jsonable
+data class Timeout(val timeout: Double): Jsonable
