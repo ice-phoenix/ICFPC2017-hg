@@ -214,7 +214,7 @@ class SpanningTreePunter : AbstractPunter() {
         }
     }
 
-    private fun sortMinePairs(ourVertices: IntHashSet) {
+    private fun sortMinePairs(ourVertices: Set<Int>) {
         // Sort mine pairs by their closeness to our vertices
         val groups = minePairs.groupBy { (from, to) ->
             if (from in ourVertices && to in ourVertices) {
