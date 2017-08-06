@@ -35,6 +35,8 @@ fun Grph.calcScores(mines: IntSet): Map<Pair<Int, Int>, Int> {
 
 abstract class AbstractPunter : Punter {
 
+    override var currentScore: Int? = null
+
     val logger: Logger = LoggerFactory.getLogger(javaClass)
 
     protected class State(val graph: Grph,

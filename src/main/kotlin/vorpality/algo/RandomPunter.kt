@@ -12,6 +12,8 @@ import java.util.concurrent.ThreadLocalRandom
 
 class RandomPunter : Punter {
 
+    override val currentScore = null
+
     class State(val graph: MutableMap<River, Int>): Jsonable {
         constructor(data: SetupData): this(mutableMapOf()) {
             with(data.map) {

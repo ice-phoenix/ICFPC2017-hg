@@ -15,5 +15,7 @@ interface Punter {
 
     val me: Int
 
+    val currentScore: Int?
+
 }
 

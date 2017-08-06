@@ -14,6 +14,9 @@ import vorpality.protocol.SetupData
 
 class SpoilerPunter(override var me: Int = -1): Punter {
 
+    override val currentScore: Int?
+        get() = null
+
     override fun setup(data: SetupData) {
         val ug = SimpleGraph{ v0: Int, v1: Int -> River(v0, v1).sorted() }
 

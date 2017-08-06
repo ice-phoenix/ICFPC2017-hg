@@ -75,6 +75,15 @@ class SpanningTreePunter : AbstractPunter() {
                 EMPTY_COLOR == ownerColoring.getOrDefault(edge, EMPTY_COLOR)
             }
 
+    private fun score(grph: Grph) = grph.vertices.map { (v) ->
+        mines.filter { grph.containsVertex(it) && grph.containsAPath(it, v) }.sumBy { state.scoring[it to v] ?: 0 }
+    }.sum()
+
+    private fun scoreIn(grph: Grph, vararg vs: Int) = vs.sumBy { v ->
+        mines.filter { grph.containsVertex(it) }.sumBy { state.scoring[it to v] ?: 0 }
+    }
+
+
     override fun step(moves: List<Move>): Move {
         with(state) {
             for ((pass, claim, splurge) in moves) {
@@ -128,9 +137,7 @@ class SpanningTreePunter : AbstractPunter() {
             val ourVertices = ourEdges.flatMap { graph.edgeVertices(it.value).toList() }.toIntSet()
 
             val ourGraph = graph.getSubgraphInducedByEdges(ourEdges)
-            val currentScore = ourGraph.vertices.map { (v) ->
-                mines.filter { ourGraph.containsVertex(it) && ourGraph.containsAPath(it, v) }.sumBy { scoring[it to v] ?: 0 }
-            }.sum()
+            currentScore = score(ourGraph)
 
             logger.info("Our current score is: $currentScore")
 
@@ -143,11 +150,11 @@ class SpanningTreePunter : AbstractPunter() {
                         .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
                         .map { graph.getSubgraphInducedByVertices(it) }
                         .map { scc -> scc to
-                                (mines.filter { scc.containsVertex(it) }.firstOrNull()
+                                (mines.filter { scc.containsVertex(it) }.maxBy { scoreIn(ourGraph, it) }
                                         ?: scc.vertices.pickRandomElement(rnd)) }
                         .map { (scc, from) -> scc to
                                 (from to
-                                        scc.getFartestVertex(from)) }
+                                        scc.vertices.maxBy { scoreIn(ourGraph, from, it.value) }!!.value) }
                         .filter { (_, p) -> p.first != p.second }
                         .filter { (scc, p) ->
                             scc.spanningTree
@@ -171,16 +178,18 @@ class SpanningTreePunter : AbstractPunter() {
                             .map {
                                 graph.getSubgraphInducedByVertices(it) to
                                         IntSets.intersection(it, ourVertices)
-                                                .let { if (it.isEmpty) ourVertices else it }
-                                                .pickRandomElement(rnd)
+                                                .maxBy { scoreIn(ourGraph, it.value) }
                             }
+                            .map { (scc, v) -> v?.let{ scc to v.value } }
+                            .filterNotNull()
                             .map { (scc, from) ->
                                 scc to
                                         (from to
                                                 IntSets.difference(scc.vertices, ourVertices)
-                                                        .pickRandomElementIfNotEmpty(rnd, from, false))
+                                                        .maxBy { scoreIn(ourGraph, from, it.value) }?.value)
                             }
-                            .filter { (_, p) -> p.first != p.second }
+                            .filter { (_, p) -> p.first != p.second && p.second != null }
+                            .map { it.uncheckedCast<Pair<Grph, Pair<Int, Int>>>() }
                             .filter { (scc, p) ->
                                 scc.spanningTree
                                         .getShortestPath(p.first, p.second, ourEdgesFirstPriority)
