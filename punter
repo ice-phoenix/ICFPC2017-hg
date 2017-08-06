@@ -1,3 +1,6 @@
 #!/usr/bin/env bash
 
-java -jar target/icfpc-2017-1.0-SNAPSHOT-jar-with-dependencies.jar --offline --spanning_tree
+java \
+    -Xverify:none -Xms3G -Xmx3G \
+    -jar target/icfpc-2017-1.0-SNAPSHOT-jar-with-dependencies.jar \
+    --offline --spanning_tree

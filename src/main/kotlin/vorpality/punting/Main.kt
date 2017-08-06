@@ -5,7 +5,10 @@ import com.xenomachina.argparser.default
 import io.vertx.core.json.JsonObject
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import vorpality.algo.*
+import vorpality.algo.Passer
+import vorpality.algo.Punter
+import vorpality.algo.RandomPunter
+import vorpality.algo.SpanningTreePunter
 import vorpality.protocol.*
 import vorpality.protocol.Map
 import vorpality.punting.GlobalSettings.logger
@@ -106,10 +109,13 @@ inline fun <reified T : Jsonable> readJsonable(sin: Reader): T {
         logger.info("-> $length:$content")
     }
 
-    logger.info("Parsing on")
-    val result = JsonObject(content).toJsonable<T>()
-    logger.info("Parsing off")
-    return result
+    logger.info("JsonObject on")
+    val result = JsonObject(content)
+    logger.info("JsonObject off")
+    logger.info("toJsonable on")
+    val result2 = result.toJsonable<T>()
+    logger.info("toJsonable off")
+    return result2
 }
 
 inline fun Jsonable.writeJsonable(sout: PrintWriter) {
@@ -140,11 +146,23 @@ fun main(arguments: Array<String>) {
         Punters.PASSER -> Passer()
     }
 
+    logger.info("Warming up")
+    warmUp(punter)
+    logger.info("Warming done")
+
     when {
         Mode.ONLINE == GlobalSettings.MODE -> runOnlineMode(args, punter, logger)
         Mode.OFFLINE == GlobalSettings.MODE -> runOfflineMode(args, punter, logger)
         Mode.FILE == GlobalSettings.MODE -> runFileMode(args, punter, logger)
     }
+}
+
+fun warmUp(punter: Punter) {
+    val inp = SetupData(0, 0, Map(listOf(), listOf(River(0, 1)), listOf()), JsonObject()).toJson().encode()
+    val sd: SetupData = JsonObject(inp).toJsonable()
+    punter.setup(sd)
+    val rd = punter.currentState
+    punter.currentState = rd
 }
 
 private fun runFileMode(args: Arguments, punter: Punter, logger: Logger) {
@@ -199,6 +217,7 @@ private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
             val step = punter.step(gtm.move.moves)
             step.copy(state = punter.currentState).writeJsonable(sout)
         } catch (ex: Exception) {
+            logger.info("Oops!", ex)
             PassMove(punter.me, state = punter.currentState).writeJsonable(sout)
         }
     } else if (message.end != null) {
@@ -237,15 +256,22 @@ data class Message(
         override val dataklass: KClass<Message> get() = throw NotImplementedError()
 
         override fun fromJson(json: JsonObject): Message? {
-            return tryOrNull {
-                Message(turn = json.toJsonable())
-            } ?: tryOrNull {
-                Message(end = json.toJsonable())
-            } ?: tryOrNull {
-                Message(setupData = json.toJsonable())
-            } ?: tryOrNull {
-                Message(timeout = json.toJsonable())
-            } ?: throw IllegalArgumentException("${json}")
+            return when {
+                json.containsKey("move") -> Message(turn = json.toJsonable())
+                json.containsKey("stop") -> Message(end = json.toJsonable())
+                json.containsKey("punters") -> Message(setupData = json.toJsonable())
+                json.containsKey("timeout") -> Message(timeout = json.toJsonable())
+                else -> throw IllegalArgumentException("$json")
+            }
+//            return tryOrNull {
+//                Message(turn = json.toJsonable())
+//            } ?: tryOrNull {
+//                Message(end = json.toJsonable())
+//            } ?: tryOrNull {
+//                Message(setupData = json.toJsonable())
+//            } ?: tryOrNull {
+//                Message(timeout = json.toJsonable())
+//            } ?: throw IllegalArgumentException("$json")
         }
     }
 }
@@ -290,7 +316,7 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
         res = serverMessage.end
         if (res != null) break
 
-        if(serverMessage.timeout != null) {
+        if (serverMessage.timeout != null) {
             logger.info("timeout", Exception())
             continue
         }
