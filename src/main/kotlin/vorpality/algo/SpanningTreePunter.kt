@@ -144,12 +144,14 @@ class SpanningTreePunter : AbstractPunter() {
 
             val ourEdgesFirstPriority = NumericalProperty(null, 32, 1)
                     .apply { ourEdges.forEach { setValue(it.value, 0) } }
-            val ourVertices = ourEdges.asSequence()
-                    .flatMap { graph.edgeVertices(it.value).asIterable().asSequence() }
+            val ourVertices = ourEdges
+                    .flatMap { graph.edgeVertices(it.value).toList() }
                     .toIntSet()
 
             val ourGraph = graph.getSubgraphInducedByEdges(ourEdges)
+            logger.info("Scoring on")
             currentScore = score(ourGraph)
+            logger.info("Scoring off")
 
             if (GlobalSettings.logging) {
                 logger.info("Our current score is: $currentScore")
