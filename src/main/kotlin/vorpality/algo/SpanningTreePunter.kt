@@ -41,25 +41,33 @@ class SpanningTreePunter : AbstractPunter() {
 
     private fun Path.isInteresting(
             grph: Grph,
-            pred: (Int) -> Boolean): Int {
+            pred: (Int) -> Boolean): List<List<Pair<Int, Int>>> {
 
         val asArray = toVertexArray()
 
-        var selectedEdge: Int = -1
+        val selectedEdges = mutableListOf<List<Pair<Int, Int>>>()
+
+        var currentPath = emptyList<Pair<Int, Int>>()
 
         var prevVertex = asArray.first()
         for (nextVertex in asArray.drop(1)) {
             val currentEdge = grph.getSomeEdgeConnecting(prevVertex, nextVertex)
 
             if (pred(currentEdge)) {
-                selectedEdge = currentEdge
-                break
+                currentPath += (prevVertex to nextVertex)
+            } else if (currentPath.isNotEmpty()) {
+                selectedEdges += currentPath
+                currentPath = emptyList()
             }
 
             prevVertex = nextVertex
         }
 
-        return selectedEdge
+        if (currentPath.isNotEmpty()) {
+            selectedEdges += currentPath
+        }
+
+        return selectedEdges
     }
 
     private fun EmptyEdgePredicate(edge: Int): Boolean =
@@ -127,16 +135,21 @@ class SpanningTreePunter : AbstractPunter() {
                         // XXX: belyaev: did I get it correctly?
                         .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
                         .map { graph.getSubgraphInducedByVertices(it) }
-                        .map { scc -> scc to (mines.filter { scc.containsVertex(it) }.firstOrNull() ?: scc.vertices.pickRandomElement(rnd)) }
-                        .map { (scc, from) -> scc to (from to scc.getFartestVertex(from)) }
+                        .map { scc -> scc to
+                                (mines.filter { scc.containsVertex(it) }.firstOrNull()
+                                        ?: scc.vertices.pickRandomElement(rnd)) }
+                        .map { (scc, from) -> scc to
+                                (from to
+                                        scc.getFartestVertex(from)) }
                         .filter { (_, p) -> p.first != p.second }
                         .filter { (scc, p) ->
-                            -1 != scc.spanningTree
+                            scc.spanningTree
                                     .getShortestPath(p.first, p.second, ourEdgesFirstPriority)
                                     .isInteresting(
                                             graph,
                                             this@SpanningTreePunter::EmptyEdgePredicate
                                     )
+                                    .isNotEmpty()
                         }
                         .map { (_, p) -> p }
                         .toMutableList()
@@ -148,16 +161,27 @@ class SpanningTreePunter : AbstractPunter() {
                             .connectedComponents
                             .asSequence()
                             .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
-                            .map { graph.getSubgraphInducedByVertices(it) to IntSets.intersection(it, ourVertices).pickRandomElement(rnd) }
-                            .map { (scc, from) -> scc to (from to IntSets.difference(scc.vertices, ourVertices).pickRandomElementIfNotEmpty(rnd, from, false)) }
+                            .map {
+                                graph.getSubgraphInducedByVertices(it) to
+                                        IntSets.intersection(it, ourVertices)
+                                                .let { if (it.isEmpty) ourVertices else it }
+                                                .pickRandomElement(rnd)
+                            }
+                            .map { (scc, from) ->
+                                scc to
+                                        (from to
+                                                IntSets.difference(scc.vertices, ourVertices)
+                                                        .pickRandomElementIfNotEmpty(rnd, from, false))
+                            }
                             .filter { (_, p) -> p.first != p.second }
                             .filter { (scc, p) ->
-                                -1 != scc.spanningTree
+                                scc.spanningTree
                                         .getShortestPath(p.first, p.second, ourEdgesFirstPriority)
                                         .isInteresting(
                                                 graph,
                                                 this@SpanningTreePunter::EmptyEdgePredicate
                                         )
+                                        .isNotEmpty()
                             }
                             .map { (_, p) -> p }
                             .toMutableList()
@@ -218,16 +242,28 @@ class SpanningTreePunter : AbstractPunter() {
 
             logger.info("Path: $currentPath")
 
-            val selectedEdge = currentPath.isInteresting(
+            val selectedPaths = currentPath.isInteresting(
                     spanningTree,
                     this@SpanningTreePunter::EmptyEdgePredicate
             )
 
-            return if (-1 != selectedEdge) {
-                val (from, to) = spanningTree.edgeVertices(selectedEdge)
+            return if (selectedPaths.isNotEmpty()) {
                 if (credit >= 0) {
-                    SplurgeMove(me, listOf(to, from))
+                    credit += 1
+                    val selectedPath = selectedPaths
+                            .first()
+                            .take(credit)
+
+                    credit -= selectedPath.size
+
+                    val selectedVertices = selectedPath.fold(
+                            listOf(selectedPath.first().first)
+                    ) { a, e -> a + e.second }
+
+                    SplurgeMove(me, selectedVertices)
                 } else {
+                    val selectedEdge = selectedPaths.first().first()
+                    val (from, to) = selectedEdge
                     ClaimMove(me, to, from)
                 }
             } else {
