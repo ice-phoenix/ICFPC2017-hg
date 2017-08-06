@@ -268,6 +268,12 @@ class SpanningTreePunter : AbstractPunter() {
 
             return if (selectedPaths.isNotEmpty()) {
                 if (credit >= 0) {
+
+                    // TODO: move to settings
+                    if (selectedPaths.first().size / 2 > credit) {
+                        return PassMove(me)
+                    }
+
                     credit += 1
                     val selectedPath = selectedPaths
                             .first()
