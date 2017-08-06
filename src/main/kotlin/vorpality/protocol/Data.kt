@@ -23,12 +23,17 @@ data class Map(val sites: List<Site>, val rivers: List<River>, val mines: List<S
 data class SetupData(
         val punter: PunterId,
         val punters: Int,
-        val map: Map
+        val map: Map,
+        val settings: JsonObject?
 ) : Jsonable
 
 data class Ready(val ready: PunterId, val futures: List<Future>? = null, val state: JsonObject? = null) : Jsonable
 
-data class Move(val pass: Pass? = null, val claim: Claim? = null, val state: JsonObject? = null) : Jsonable {
+data class Move(
+        val pass: Pass? = null,
+        val claim: Claim? = null,
+        val splurge: Splurge? = null,
+        val state: JsonObject? = null) : Jsonable {
     // by default our json facility does not throw out nulls
     override fun toJson(): JsonObject =
             super.toJson().apply { removeAll { (_, v) -> v == null } }
@@ -36,12 +41,16 @@ data class Move(val pass: Pass? = null, val claim: Claim? = null, val state: Jso
 
 data class Pass(val punter: PunterId) : Jsonable
 data class Claim(val punter: PunterId, val source: SiteId, val target: SiteId) : Jsonable
+data class Splurge(val punter: PunterId, val route: List<SiteId>) : Jsonable
 
 fun PassMove(punter: PunterId, state: JsonObject? = null) =
         Move(pass = Pass(punter), state = state)
 
 fun ClaimMove(punter: PunterId, source: SiteId, target: SiteId, state: JsonObject? = null) =
         Move(claim = Claim(punter, source, target), state = state)
+
+fun SplurgeMove(punter: PunterId, route: List<SiteId>, state: JsonObject? = null) =
+        Move(splurge = Splurge(punter, route), state = state)
 
 data class GameTurn(val moves: List<Move>) : Jsonable
 data class GameTurnMessage(val move: GameTurn, val state: JsonObject? = null) : Jsonable

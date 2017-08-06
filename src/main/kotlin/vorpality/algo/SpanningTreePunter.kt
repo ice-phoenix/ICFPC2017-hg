@@ -6,13 +6,9 @@ import grph.properties.NumericalProperty
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import toools.set.IntArrayWrappingIntSet
-import toools.set.IntHashSet
 import toools.set.IntSet
 import toools.set.IntSets
-import vorpality.protocol.ClaimMove
-import vorpality.protocol.Move
-import vorpality.protocol.PassMove
-import vorpality.protocol.SetupData
+import vorpality.protocol.*
 import vorpality.util.tryToJson
 import java.util.concurrent.ThreadLocalRandom
 
@@ -73,15 +69,41 @@ class SpanningTreePunter : AbstractPunter() {
 
     override fun step(moves: List<Move>): Move {
         with(state) {
-            for ((_, claim) in moves) {
-                claim ?: continue
+            for ((pass, claim, splurge) in moves) {
+                if (pass != null) {
+                    if (me == pass.punter) credit++
+                    continue
+                }
 
-                val edge = graph.getSomeEdgeConnecting(claim.source, claim.target)
+                if (claim != null) {
+                    val edge = graph.getSomeEdgeConnecting(claim.source, claim.target)
 
-                if (me == claim.punter) {
-                    ownerColoring[edge] = me
-                } else {
-                    graph.removeEdge(edge)
+                    if (me == claim.punter) {
+                        ownerColoring[edge] = me
+                    } else {
+                        graph.removeEdge(edge)
+                    }
+                }
+
+                if (splurge != null) {
+
+                    val edges = mutableListOf<Int>()
+
+                    var currentSite = splurge.route.first()
+                    for (nextSite in splurge.route.drop(1)) {
+                        edges.add(graph.getSomeEdgeConnecting(currentSite, nextSite))
+                        currentSite = nextSite
+                    }
+
+                    if (me == splurge.punter) {
+                        for (edge in edges) {
+                            ownerColoring[edge] = me
+                        }
+                    } else {
+                        for (edge in edges) {
+                            graph.removeEdge(edge)
+                        }
+                    }
                 }
             }
 
@@ -94,7 +116,7 @@ class SpanningTreePunter : AbstractPunter() {
 
             val ourEdges = state.ownerColoring.filter { it.value == me }.keys.toIntSet()
 
-            val ourEdgesFirstPriority = NumericalProperty(null, 32, 1).apply { ourEdges.forEach { setValue(it.value, 0) }}
+            val ourEdgesFirstPriority = NumericalProperty(null, 32, 1).apply { ourEdges.forEach { setValue(it.value, 0) } }
             val ourVertices = ourEdges.flatMap { graph.edgeVertices(it.value).toList() }.toIntSet()
 
             if (minePairs.isEmpty()) {
@@ -203,7 +225,11 @@ class SpanningTreePunter : AbstractPunter() {
 
             return if (-1 != selectedEdge) {
                 val (from, to) = spanningTree.edgeVertices(selectedEdge)
-                ClaimMove(me, to, from)
+                if (credit >= 0) {
+                    SplurgeMove(me, listOf(to, from))
+                } else {
+                    ClaimMove(me, to, from)
+                }
             } else {
                 minePairs.removeAt(0)
                 sortMinePairs(ourVertices)
