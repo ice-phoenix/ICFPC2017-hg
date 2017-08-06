@@ -242,9 +242,9 @@ data class Message(
 
         override fun fromJson(json: JsonObject): Message? {
             return when {
-                json.containsKey("turn") -> Message(turn = json.toJsonable())
-                json.containsKey("end") -> Message(end = json.toJsonable())
-                json.containsKey("setupData") -> Message(setupData = json.toJsonable())
+                json.containsKey("move") -> Message(turn = json.toJsonable())
+                json.containsKey("stop") -> Message(end = json.toJsonable())
+                json.containsKey("punters") -> Message(setupData = json.toJsonable())
                 json.containsKey("timeout") -> Message(timeout = json.toJsonable())
                 else -> throw IllegalArgumentException("$json")
             }
