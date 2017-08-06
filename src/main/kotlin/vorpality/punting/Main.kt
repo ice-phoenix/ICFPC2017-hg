@@ -142,8 +142,8 @@ private fun runFileMode(args: Arguments, punter: Punter, logger: Logger) {
     logger.info("map = ${map}")
     val taken: MutableMap<River, Int> = mutableMapOf()
     val adversary = RandomPunter()
-    punter.setup(SetupData(0, 2, map))
-    adversary.setup(SetupData(1, 2, map))
+    punter.setup(SetupData(0, 2, map, null))
+    adversary.setup(SetupData(1, 2, map, null))
 
     val moves = mutableMapOf(0 to PassMove(0), 1 to PassMove(1))
     var counter = 0

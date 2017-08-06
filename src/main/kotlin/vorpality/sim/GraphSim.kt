@@ -8,21 +8,25 @@ import vorpality.protocol.River
 data class GraphSim(val map: Map, val owners: MutableMap<River, Int> = mutableMapOf()) {
 
     init {
-        for(river in map.rivers) {
+        for (river in map.rivers) {
             owners[river.sorted()] = EMPTY_COLOR
         }
     }
 
-
     fun handleMove(move: Move) {
-        when{
+        when {
             move.claim != null -> with(move.claim) {
                 val river = River(source, target).sorted()
-                if(owners[river] == EMPTY_COLOR) owners[River(source, target).sorted()] = punter
+                if (owners[river] == EMPTY_COLOR) owners[river] = punter
+            }
+            move.splurge != null -> with(move.splurge) {
+                var current = route.first()
+                for (next in route.drop(1)) {
+                    val river = River(current, next).sorted()
+                    if (owners[river] == EMPTY_COLOR) owners[river] = punter
+                    current = next
+                }
             }
         }
     }
 }
-
-
-

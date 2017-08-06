@@ -6,13 +6,9 @@ import grph.properties.NumericalProperty
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import toools.set.IntArrayWrappingIntSet
-import toools.set.IntHashSet
 import toools.set.IntSet
 import toools.set.IntSets
-import vorpality.protocol.ClaimMove
-import vorpality.protocol.Move
-import vorpality.protocol.PassMove
-import vorpality.protocol.SetupData
+import vorpality.protocol.*
 import vorpality.util.tryToJson
 import java.util.concurrent.ThreadLocalRandom
 
@@ -45,25 +41,33 @@ class SpanningTreePunter : AbstractPunter() {
 
     private fun Path.isInteresting(
             grph: Grph,
-            pred: (Int) -> Boolean): Int {
+            pred: (Int) -> Boolean): List<List<Pair<Int, Int>>> {
 
         val asArray = toVertexArray()
 
-        var selectedEdge: Int = -1
+        val selectedEdges = mutableListOf<List<Pair<Int, Int>>>()
+
+        var currentPath = emptyList<Pair<Int, Int>>()
 
         var prevVertex = asArray.first()
         for (nextVertex in asArray.drop(1)) {
             val currentEdge = grph.getSomeEdgeConnecting(prevVertex, nextVertex)
 
             if (pred(currentEdge)) {
-                selectedEdge = currentEdge
-                break
+                currentPath += (prevVertex to nextVertex)
+            } else if (currentPath.isNotEmpty()) {
+                selectedEdges += currentPath
+                currentPath = emptyList()
             }
 
             prevVertex = nextVertex
         }
 
-        return selectedEdge
+        if (currentPath.isNotEmpty()) {
+            selectedEdges += currentPath
+        }
+
+        return selectedEdges
     }
 
     private fun EmptyEdgePredicate(edge: Int): Boolean =
@@ -73,15 +77,41 @@ class SpanningTreePunter : AbstractPunter() {
 
     override fun step(moves: List<Move>): Move {
         with(state) {
-            for ((_, claim) in moves) {
-                claim ?: continue
+            for ((pass, claim, splurge) in moves) {
+                if (pass != null) {
+                    if (me == pass.punter) credit++
+                    continue
+                }
 
-                val edge = graph.getSomeEdgeConnecting(claim.source, claim.target)
+                if (claim != null) {
+                    val edge = graph.getSomeEdgeConnecting(claim.source, claim.target)
 
-                if (me == claim.punter) {
-                    ownerColoring[edge] = me
-                } else {
-                    graph.removeEdge(edge)
+                    if (me == claim.punter) {
+                        ownerColoring[edge] = me
+                    } else {
+                        graph.removeEdge(edge)
+                    }
+                }
+
+                if (splurge != null) {
+
+                    val edges = mutableListOf<Int>()
+
+                    var currentSite = splurge.route.first()
+                    for (nextSite in splurge.route.drop(1)) {
+                        edges.add(graph.getSomeEdgeConnecting(currentSite, nextSite))
+                        currentSite = nextSite
+                    }
+
+                    if (me == splurge.punter) {
+                        for (edge in edges) {
+                            ownerColoring[edge] = me
+                        }
+                    } else {
+                        for (edge in edges) {
+                            graph.removeEdge(edge)
+                        }
+                    }
                 }
             }
 
@@ -94,7 +124,7 @@ class SpanningTreePunter : AbstractPunter() {
 
             val ourEdges = state.ownerColoring.filter { it.value == me }.keys.toIntSet()
 
-            val ourEdgesFirstPriority = NumericalProperty(null, 32, 1).apply { ourEdges.forEach { setValue(it.value, 0) }}
+            val ourEdgesFirstPriority = NumericalProperty(null, 32, 1).apply { ourEdges.forEach { setValue(it.value, 0) } }
             val ourVertices = ourEdges.flatMap { graph.edgeVertices(it.value).toList() }.toIntSet()
 
             if (minePairs.isEmpty()) {
@@ -105,16 +135,21 @@ class SpanningTreePunter : AbstractPunter() {
                         // XXX: belyaev: did I get it correctly?
                         .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
                         .map { graph.getSubgraphInducedByVertices(it) }
-                        .map { scc -> scc to (mines.filter { scc.containsVertex(it) }.firstOrNull() ?: scc.vertices.pickRandomElement(rnd)) }
-                        .map { (scc, from) -> scc to (from to scc.getFartestVertex(from)) }
+                        .map { scc -> scc to
+                                (mines.filter { scc.containsVertex(it) }.firstOrNull()
+                                        ?: scc.vertices.pickRandomElement(rnd)) }
+                        .map { (scc, from) -> scc to
+                                (from to
+                                        scc.getFartestVertex(from)) }
                         .filter { (_, p) -> p.first != p.second }
                         .filter { (scc, p) ->
-                            -1 != scc.spanningTree
+                            scc.spanningTree
                                     .getShortestPath(p.first, p.second, ourEdgesFirstPriority)
                                     .isInteresting(
                                             graph,
                                             this@SpanningTreePunter::EmptyEdgePredicate
                                     )
+                                    .isNotEmpty()
                         }
                         .map { (_, p) -> p }
                         .toMutableList()
@@ -126,16 +161,27 @@ class SpanningTreePunter : AbstractPunter() {
                             .connectedComponents
                             .asSequence()
                             .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
-                            .map { graph.getSubgraphInducedByVertices(it) to IntSets.intersection(it, ourVertices).pickRandomElement(rnd) }
-                            .map { (scc, from) -> scc to (from to IntSets.difference(scc.vertices, ourVertices).pickRandomElementIfNotEmpty(rnd, from, false)) }
+                            .map {
+                                graph.getSubgraphInducedByVertices(it) to
+                                        IntSets.intersection(it, ourVertices)
+                                                .let { if (it.isEmpty) ourVertices else it }
+                                                .pickRandomElement(rnd)
+                            }
+                            .map { (scc, from) ->
+                                scc to
+                                        (from to
+                                                IntSets.difference(scc.vertices, ourVertices)
+                                                        .pickRandomElementIfNotEmpty(rnd, from, false))
+                            }
                             .filter { (_, p) -> p.first != p.second }
                             .filter { (scc, p) ->
-                                -1 != scc.spanningTree
+                                scc.spanningTree
                                         .getShortestPath(p.first, p.second, ourEdgesFirstPriority)
                                         .isInteresting(
                                                 graph,
                                                 this@SpanningTreePunter::EmptyEdgePredicate
                                         )
+                                        .isNotEmpty()
                             }
                             .map { (_, p) -> p }
                             .toMutableList()
@@ -208,14 +254,30 @@ class SpanningTreePunter : AbstractPunter() {
 
             logger.info("Path: $currentPath")
 
-            val selectedEdge = currentPath.isInteresting(
+            val selectedPaths = currentPath.isInteresting(
                     spanningTree,
                     this@SpanningTreePunter::EmptyEdgePredicate
             )
 
-            return if (-1 != selectedEdge) {
-                val (from, to) = spanningTree.edgeVertices(selectedEdge)
-                ClaimMove(me, to, from)
+            return if (selectedPaths.isNotEmpty()) {
+                if (credit >= 0) {
+                    credit += 1
+                    val selectedPath = selectedPaths
+                            .first()
+                            .take(credit)
+
+                    credit -= selectedPath.size
+
+                    val selectedVertices = selectedPath.fold(
+                            listOf(selectedPath.first().first)
+                    ) { a, e -> a + e.second }
+
+                    SplurgeMove(me, selectedVertices)
+                } else {
+                    val selectedEdge = selectedPaths.first().first()
+                    val (from, to) = selectedEdge
+                    ClaimMove(me, to, from)
+                }
             } else {
                 minePairs.removeAt(0)
                 sortMinePairs(ourVertices)

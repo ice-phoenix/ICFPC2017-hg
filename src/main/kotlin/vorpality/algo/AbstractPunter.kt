@@ -17,8 +17,8 @@ import kotlin.reflect.jvm.reflect
 const val EMPTY_COLOR = -1
 const val MINE_COLOR = 1
 
-fun<T> decltype(witness: () -> T): KType = witness.reflect()!!.returnType
-fun<T> Any?.tryFromJsonWithTypeOf(witness: () -> T) = tryFromJson(decltype(witness)) as T
+fun <T> decltype(witness: () -> T): KType = witness.reflect()!!.returnType
+fun <T> Any?.tryFromJsonWithTypeOf(witness: () -> T) = tryFromJson(decltype(witness)) as T
 
 abstract class AbstractPunter : Punter {
 
@@ -97,11 +97,13 @@ abstract class AbstractPunter : Punter {
     }
 
     override var me: Int = -1
+    var credit: Int = Int.MIN_VALUE
 
     override var currentState: JsonObject
-        get() = state.toJson().apply { put("me", me) }
+        get() = state.toJson().apply { put("me", me); put("credit", credit) }
         set(value) {
             me = value.getInteger("me")
+            credit = value.getInteger("credit")
             state = value.toJsonable<State>()
         }
     protected lateinit var state: State
@@ -116,6 +118,7 @@ abstract class AbstractPunter : Punter {
 
     override fun setup(data: SetupData) {
         me = data.punter
+        credit = if (data.settings?.getBoolean("splurges") ?: false) -1 else Int.MIN_VALUE
         state = State(data)
 
         logger.info("Graph is: ${state.graph.toGrphText()}")
