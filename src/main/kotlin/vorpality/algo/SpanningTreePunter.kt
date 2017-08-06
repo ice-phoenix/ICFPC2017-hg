@@ -133,8 +133,8 @@ class SpanningTreePunter : AbstractPunter() {
                             .connectedComponents
                             .asSequence()
                             .filter { !IntSets.intersection(it, IntArrayWrappingIntSet(mines)).isEmpty }
-                            .map { graph.getSubgraphInducedByVertices(it) to it.pickRandomElement(rnd) }
-                            .map { (scc, from) -> scc to (from to scc.vertices.pickRandomElementIfNotEmpty(rnd, from, false)) }
+                            .map { graph.getSubgraphInducedByVertices(it) to IntSets.intersection(it, ourVertices).pickRandomElement(rnd) }
+                            .map { (scc, from) -> scc to (from to IntSets.difference(scc.vertices, ourVertices).pickRandomElementIfNotEmpty(rnd, from, false)) }
                             .filter { (_, p) -> p.first != p.second }
                             .filter { (scc, p) ->
                                 -1 != scc.spanningTree
