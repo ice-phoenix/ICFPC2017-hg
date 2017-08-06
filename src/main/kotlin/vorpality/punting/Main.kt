@@ -5,10 +5,7 @@ import com.xenomachina.argparser.default
 import io.vertx.core.json.JsonObject
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import vorpality.algo.Passer
-import vorpality.algo.Punter
-import vorpality.algo.RandomPunter
-import vorpality.algo.SpanningTreePunter
+import vorpality.algo.*
 import vorpality.protocol.*
 import vorpality.protocol.Map
 import vorpality.punting.GlobalSettings.logger
@@ -40,7 +37,7 @@ object GlobalSettings {
 
     val logger: Logger = LoggerFactory.getLogger("Global")
 
-    val logging = false
+    const val logging = false
 }
 
 class Arguments(p: ArgParser) {

@@ -13,10 +13,6 @@ class NaiveScoreDrivenPunter: AbstractPunter() {
 
     val ownedVertices: MutableSet<Int> = mutableSetOf()
 
-    fun calcScore(vertice: Grph) {
-
-    }
-
     override fun step(moves: List<Move>): Move {
         for((_, claim) in moves) if(claim != null) {
             with(claim) {

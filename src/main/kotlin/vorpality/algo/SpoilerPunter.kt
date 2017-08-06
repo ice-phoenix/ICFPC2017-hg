@@ -28,6 +28,7 @@ class SpoilerPunter(override var me: Int = -1): Punter {
 
         val part = StoerWagnerMinimumCut(ug).minCut()
 
+
         val cutEdges = ug.edgeSet().filter {
             val s = it.source in part
             val t = it.target in part
