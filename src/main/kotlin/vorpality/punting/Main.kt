@@ -251,7 +251,7 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
     val sim = if(args.gui) GraphSim(setupData.map) else null
     punter.setup(setupData)
     val gui = if(args.gui) {
-        GraphPanel(sim!!, punter.me).apply {
+        GraphPanel(sim!!, punter.me, setupData.punters).apply {
             showMe()
             repaint()
         }
