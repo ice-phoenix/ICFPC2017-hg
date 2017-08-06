@@ -1,8 +1,6 @@
 package vorpality.algo
 
 import grph.Grph
-import grph.algo.search.BFSAlgorithm
-import grph.algo.search.GraphSearchListener
 import grph.in_memory.InMemoryGrph
 import io.vertx.core.json.JsonObject
 import org.slf4j.Logger
