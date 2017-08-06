@@ -2,7 +2,9 @@ package vorpality.punting
 
 import com.xenomachina.argparser.ArgParser
 import com.xenomachina.argparser.default
+import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
+import org.intellij.lang.annotations.Language
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import vorpality.algo.Passer
@@ -76,7 +78,7 @@ class Arguments(p: ArgParser) {
 
     val gui: Boolean by p.flagging("Enable GUI").default(false)
 
-    val no_splurging: Boolean by p.flagging("No splurge moves").default(false)
+    val splurging: Boolean by p.flagging("Enable splurge moves").default(true)
 }
 
 inline fun <reified T : Jsonable> readJsonable(sin: Reader): T {
@@ -138,6 +140,10 @@ fun main(arguments: Array<String>) {
 
     GlobalSettings.MODE = args.mode
 
+    logger.info("Warming up")
+    warmUp()
+    logger.info("Warming done")
+
     logger.info("Running in ${GlobalSettings.MODE} mode")
 
     val punter = when (args.punter) {
@@ -145,10 +151,6 @@ fun main(arguments: Array<String>) {
         Punters.SPANNING_TREE -> SpanningTreePunter()
         Punters.PASSER -> Passer()
     }
-
-    logger.info("Warming up")
-    warmUp(punter)
-    logger.info("Warming done")
 
     when {
         Mode.ONLINE == GlobalSettings.MODE -> runOnlineMode(args, punter, logger)
@@ -158,11 +160,46 @@ fun main(arguments: Array<String>) {
 }
 
 fun warmUp(punter: Punter) {
-    val inp = SetupData(0, 0, Map(listOf(), listOf(River(0, 1)), listOf()), JsonObject()).toJson().encode()
+    val mes: Message = JsonObject(//language=JSON
+            """
+{
+        "punter" : 0,
+        "punters" : 15,
+        "map" : {   "sites": [     {"id": 0, "x": 0.0, "y": 0.0},     {"id": 1, "x": 1.0, "y": 0.0},     {"id": 2, "x": 2.0, "y": 0.0},     {"id": 3, "x": 2.0, "y": -1.0},     {"id": 4, "x": 2.0, "y": -2.0},     {"id": 5, "x": 1.0, "y": -2.0},     {"id": 6, "x": 0.0, "y": -2.0},     {"id": 7, "x": 0.0, "y": -1.0}   ],   "rivers": [     { "source": 0, "target": 1},     { "source": 1, "target": 2},     { "source": 0, "target": 7},     { "source": 7, "target": 6},     { "source": 6, "target": 5},     { "source": 5, "target": 4},     { "source": 4, "target": 3},     { "source": 3, "target": 2},     { "source": 1, "target": 7},     { "source": 1, "target": 3},     { "source": 7, "target": 5},     { "source": 5, "target": 3}   ],   "mines": [1, 5] }
+}
+"""
+    ).toJsonable()
+
+    val inp = mes.setupData!!.toJson().encode()
     val sd: SetupData = JsonObject(inp).toJsonable()
     punter.setup(sd)
-    val rd = punter.currentState
-    punter.currentState = rd
+    val rd = punter.currentState.encode()
+    punter.currentState = JsonObject(rd)
+
+    val gtm: GameTurnMessage = JsonObject(//language=JSON
+            """
+            {
+                "move": {
+                  "moves": [
+                    { "claim" : {"punter":0, "source": 1, "target": 2} },
+                    { "pass" : { "punter" : 1 } }
+                  ]
+                }
+            }
+"""
+    ).toJsonable()
+
+    punter.step(gtm.move.moves)
+
+}
+
+fun warmUp() {
+    warmUp(SpanningTreePunter())
+    warmUp(RandomPunter())
+    warmUp(Passer())
+
+    run<Ready> { Ready(0, listOf(Future(0, 3), Future(0, 5)), JsonObject("{}")).toJson().toJsonable<Ready>().toJson().toJsonable<Ready>() }
+
 }
 
 private fun runFileMode(args: Arguments, punter: Punter, logger: Logger) {
@@ -208,6 +245,7 @@ private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
 
     // 1. Stuff
     if (message.setupData != null) {
+        if(!args.splurging) message.setupData.settings?.set("splurges", false)
         punter.setup(message.setupData)
         Ready(punter.me, state = punter.currentState).writeJsonable(sout)
     } else if (message.turn != null) {
@@ -294,7 +332,7 @@ private fun runOnlineMode(args: Arguments, punter: Punter, logger: Logger) {
 
     val setupData: SetupData = readJsonable(sin)
 
-    if(args.no_splurging) setupData.settings?.set("splurges", false)
+    if(!args.splurging) setupData.settings?.set("splurges", false)
 
     val sim = if (args.gui) GraphSim(setupData.map) else null
     punter.setup(setupData)
