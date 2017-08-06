@@ -174,14 +174,26 @@ class SpanningTreePunter : AbstractPunter() {
                     .getSubgraphInducedByVertices(scc)
                     .spanningTree
 
-            val noShuffle = when {
-                mineColoring[activePath.first] == mineColoring[activePath.second] ->
+            val noShuffle = when(mineColoring[activePath.first] to mineColoring[activePath.second]) {
+                Pair(MINE_COLOR, MINE_COLOR) -> // first build at least one edge near each mine, then proceed
                     when {
+                        // first is already ours, start with second => shuffle
                         activePath.first in ourVertices && activePath.second !in ourVertices -> false
+                        // second is already ours, start with first => no shuffle
                         activePath.second in ourVertices && activePath.first !in ourVertices -> true
                         else -> rnd.nextBoolean()
                     }
-                mineColoring[activePath.first] == MINE_COLOR -> true
+                Pair(EMPTY_COLOR, EMPTY_COLOR) -> // building edges near non-mine targets is pointless
+                    when {
+                        // first is already ours, pick it => no shuffle
+                        activePath.first in ourVertices && activePath.second !in ourVertices -> true
+                        // second is already ours, pick it => shuffle
+                        activePath.second in ourVertices && activePath.first !in ourVertices -> false
+                        else -> rnd.nextBoolean()
+                    }
+                // first is a mine, start with it => no shuffle
+                Pair(MINE_COLOR, EMPTY_COLOR) -> true
+                // second is a mine, start with it => shuffle
                 else -> false
             }
 
