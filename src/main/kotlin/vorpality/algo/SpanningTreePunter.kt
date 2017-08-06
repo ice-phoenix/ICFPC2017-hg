@@ -95,7 +95,7 @@ class SpanningTreePunter : AbstractPunter() {
 
             val ourEdges = state.ownerColoring.filter { it.value == me }.keys.toIntSet()
 
-            val ourEdgesFirstPriority = NumericalProperty(null, 32, 3).apply { ourEdges.forEach { setValue(it.value, 1) }}
+            val ourEdgesFirstPriority = NumericalProperty(null, 32, 1).apply { ourEdges.forEach { setValue(it.value, 0) }}
             val ourVertices = ourEdges.flatMap { graph.edgeVertices(it.value).toList() }.toIntSet()
 
             fun Grph.findPath(v0: Int, v1: Int) =
