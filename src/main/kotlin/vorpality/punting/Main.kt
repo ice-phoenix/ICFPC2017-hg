@@ -110,7 +110,9 @@ inline fun <reified T : Jsonable> readJsonable(sin: Reader): T {
         logger.info("-> $length:$content")
     }
 
+    logger.info("Parsing on")
     val result = JsonObject(content).toJsonable<T>()
+    logger.info("Parsing off")
     return result
 }
 
@@ -186,9 +188,9 @@ private fun runOfflineMode(args: Arguments, punter: Punter, logger: Logger) {
     val handshakeResponse: HandshakeResponse = readJsonable(sin)
     assert(args.name == handshakeResponse.you)
 
-    val message: Message = readJsonable(sin)
-
     logger.info("TIMING START")
+
+    val message: Message = readJsonable(sin)
 
     // 1. Stuff
     if (message.setupData != null) {

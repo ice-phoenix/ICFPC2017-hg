@@ -2,6 +2,7 @@ package vorpality.algo
 
 import grph.Grph
 import grph.in_memory.InMemoryGrph
+import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -35,20 +36,26 @@ fun Grph.calcScores(mines: IntSet): Map<Pair<Int, Int>, Int> {
 object GrphJsoner {
     fun toJson(graph: Grph): Any? {
         val edges = graph.edges.toIntArray()
-        return edges
+        val edgesAsList = edges
                 .asSequence()
                 .map { e -> e to graph.getOneVertex(e) }
-                .map { (e, from) -> e to (from to graph.getTheOtherVertex(e, from)) }
-                .toMap().tryToJson()
+                .flatMap { (e, from) -> sequenceOf(e, from, graph.getTheOtherVertex(e, from)) }
+                .toList()
+        return JsonArray(edgesAsList)
     }
 
     fun fromJson(js: Any?): Grph {
         val grph = InMemoryGrph()
 
-        val edgeMap = js.tryFromJsonWithTypeOf { mutableMapOf(1 to (2 to 3)) }
+        val edgesAsList = (js as JsonArray)
 
-        for ((e, p) in edgeMap) {
-            grph.addSimpleEdge(p.first, e, p.second, false)
+        for (i in 0..edgesAsList.size() - 1 step 3) {
+            grph.addSimpleEdge(
+                    edgesAsList.getInteger(i + 1),
+                    edgesAsList.getInteger(i),
+                    edgesAsList.getInteger(i + 2),
+                    false
+            )
         }
         return grph
     }
@@ -125,7 +132,12 @@ abstract class AbstractPunter : Punter {
     var credit: Int = Int.MIN_VALUE
 
     override var currentState: JsonObject
-        get() = state.toJson().apply { put("me", me).put("credit", credit) }
+        get() {
+            logger.info("Storing on")
+            val res = state.toJson().apply { put("me", me).put("credit", credit) }
+            logger.info("Storing off")
+            return res
+        }
         set(value) {
             logger.info("Loading on")
             me = value.getInteger("me")
