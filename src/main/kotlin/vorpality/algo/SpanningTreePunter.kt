@@ -6,6 +6,7 @@ import grph.properties.NumericalProperty
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import toools.set.IntArrayWrappingIntSet
+import toools.set.IntHashSet
 import toools.set.IntSet
 import toools.set.IntSets
 import vorpality.protocol.ClaimMove
@@ -14,8 +15,6 @@ import vorpality.protocol.PassMove
 import vorpality.protocol.SetupData
 import vorpality.util.tryToJson
 import java.util.concurrent.ThreadLocalRandom
-import kotlin.collections.component1
-import kotlin.collections.component2
 
 class SpanningTreePunter : AbstractPunter() {
 
@@ -149,6 +148,7 @@ class SpanningTreePunter : AbstractPunter() {
                 }
 
                 minePairs = newPairs
+                sortMinePairs(ourVertices)
             }
 
             val (activePath, scc) = minePairs
@@ -206,11 +206,35 @@ class SpanningTreePunter : AbstractPunter() {
                 ClaimMove(me, to, from)
             } else {
                 minePairs.removeAt(0)
+                sortMinePairs(ourVertices)
 
                 // retry again
                 step(emptyList())
             }
         }
+    }
+
+    private fun sortMinePairs(ourVertices: IntHashSet) {
+        // Sort mine pairs by their closeness to our vertices
+        val groups = minePairs.groupBy { (from, to) ->
+            if (from in ourVertices && to in ourVertices) {
+                0 // already connected, but still good enough
+            } else if (from in ourVertices) {
+                2 // take as is
+            } else if (to in ourVertices) {
+                1 // should swap
+            } else {
+                -1 // all the rest
+            }
+        }
+
+        minePairs = run {
+            groups.getOrDefault(2, emptyList()) +
+                    groups.getOrDefault(1, emptyList())
+                            .map { (from, to) -> to to from } +
+                    groups.getOrDefault(0, emptyList()) +
+                    groups.getOrDefault(-1, emptyList())
+        }.toMutableList()
     }
 
     override var currentState: JsonObject
@@ -229,6 +253,6 @@ class SpanningTreePunter : AbstractPunter() {
 }
 
 private fun IntSet.pickRandomElementIfNotEmpty(rnd: ThreadLocalRandom?, from: Int, b: Boolean): Int {
-    if(size() <= 1) return from
+    if (size() <= 1) return from
     return pickRandomElement(rnd, from, b)
 }
