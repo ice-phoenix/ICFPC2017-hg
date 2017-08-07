@@ -1,19 +1,16 @@
 package vorpality.sim
 
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import vorpality.algo.Punter
 import java.awt.*
+import java.awt.RenderingHints
+import java.awt.font.TextAttribute
 import java.awt.geom.Ellipse2D
+import java.awt.geom.Rectangle2D
+import java.util.*
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
-import java.awt.RenderingHints
-import java.awt.geom.Rectangle2D
-
-import vorpality.algo.Punter
-import com.sun.awt.SecurityWarning.getSize
-import java.awt.font.TextAttribute
-import sun.font.FontFamily.getFamily
-import java.util.HashMap
-
 
 
 private val palette = mapOf(
@@ -40,11 +37,11 @@ private val palette = mapOf(
         20 to Color.ORANGE.brighter().brighter()
 )
 
-class GraphPanel(val graphSim: GraphSim, val punter: Punter, val punters: Int): javax.swing.JPanel() {
-    val logger = LoggerFactory.getLogger(javaClass)
+class GraphPanel(val graphSim: GraphSim, val punter: Punter, val punters: Int) : javax.swing.JPanel() {
+    val logger: Logger = LoggerFactory.getLogger(javaClass)
 
     fun circle(x: Int, y: Int, radius: Int) =
-            Ellipse2D.Double(x.toDouble() - radius.toDouble()/2, y.toDouble() - radius.toDouble()/2, radius.toDouble(), radius.toDouble())
+            Ellipse2D.Double(x.toDouble() - radius.toDouble() / 2, y.toDouble() - radius.toDouble() / 2, radius.toDouble(), radius.toDouble())
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
@@ -72,11 +69,21 @@ class GraphPanel(val graphSim: GraphSim, val punter: Punter, val punters: Int): 
         fun adjustX(x: Double) = ((x - minX) * xAdjust).toInt() + (width / 20)
         fun adjustY(y: Double) = ((y - minY) * yAdjust).toInt() + ((height - legendHeight) / 20)
 
-        for(river in map.rivers) {
+        for (river in map.rivers) {
             g2.stroke = BasicStroke(5.0f)
             val owner = graphSim.owners.getOrDefault(river.sorted(), -1)
-            if(owner == punter.me) g2.color = Color.GREEN
-            else g2.color = palette.getOrDefault(owner, Color.BLACK)
+            if (owner == punter.me) g2.color = Color.GREEN
+            else if (owner == -punter.me) {
+                g2.color = Color.GREEN
+                g2.stroke = BasicStroke(
+                        5.0f,
+                        BasicStroke.CAP_SQUARE,
+                        BasicStroke.JOIN_MITER,
+                        1.0f,
+                        floatArrayOf(2.0f),
+                        0.0f
+                )
+            } else g2.color = palette.getOrDefault(owner, Color.BLACK)
 
             g2.drawLine(
                     adjustX(sites[river.source]?.x!!),
@@ -86,27 +93,28 @@ class GraphPanel(val graphSim: GraphSim, val punter: Punter, val punters: Int): 
             )
         }
 
-        for(site in map.sites) {
+        for (site in map.sites) {
             g2.stroke = BasicStroke(8.0f)
             g2.color = Color.DARK_GRAY
             g2.draw(circle(adjustX(site.x!!), adjustY(site.y!!), 5))
         }
 
-        for(mine in map.mines) {
+        for (mine in map.mines) {
             g2.stroke = BasicStroke(8.0f)
             val site = sites[mine]!!
             g2.color = Color.RED
             g2.draw(circle(adjustX(site.x!!), adjustY(site.y!!), 5))
         }
 
-        run { // Legend
+        run {
+            // Legend
             val cellWidth = width.toFloat() / punters
 
             (0 until punters).forEach {
-                g2.color = if(it == punter.me) Color.GREEN else palette[it]
+                g2.color = if (it == punter.me) Color.GREEN else palette[it]
                 g2.fill(Rectangle2D.Float(it * cellWidth, height.toFloat() - legendHeight, cellWidth, legendHeight.toFloat()))
                 g2.color = Color.BLACK
-                g2.drawString("${it}", it * cellWidth + cellWidth/2, height.toFloat() - legendHeight - 2)
+                g2.drawString("${it}", it * cellWidth + cellWidth / 2, height.toFloat() - legendHeight - 2)
             }
         }
 

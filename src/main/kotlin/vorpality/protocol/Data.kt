@@ -18,6 +18,8 @@ data class River(val source: SiteId, val target: SiteId) : Jsonable {
 
 data class Future(val source: SiteId, val target: SiteId) : Jsonable
 
+data class Option(val punter: PunterId, val source: SiteId, val target: SiteId) : Jsonable
+
 data class Map(val sites: List<Site>, val rivers: List<River>, val mines: List<SiteId>) : Jsonable
 
 data class SetupData(
@@ -33,6 +35,7 @@ data class Move(
         val pass: Pass? = null,
         val claim: Claim? = null,
         val splurge: Splurge? = null,
+        val option: Option? = null,
         val state: JsonObject? = null) : Jsonable {
     // by default our json facility does not throw out nulls
     override fun toJson(): JsonObject =
@@ -52,10 +55,13 @@ fun ClaimMove(punter: PunterId, source: SiteId, target: SiteId, state: JsonObjec
 fun SplurgeMove(punter: PunterId, route: List<SiteId>, state: JsonObject? = null) =
         Move(splurge = Splurge(punter, route), state = state)
 
+fun OptionMove(punter: PunterId, source: SiteId, target: SiteId, state: JsonObject? = null) =
+        Move(option = Option(punter, source, target), state = state)
+
 data class GameTurn(val moves: List<Move>) : Jsonable
 data class GameTurnMessage(val move: GameTurn, val state: JsonObject? = null) : Jsonable
 
 data class Score(val punter: PunterId, val score: Int) : Jsonable
 data class GameStop(val moves: List<Move>, val scores: List<Score>) : Jsonable
 data class GameResult(val stop: GameStop, val state: JsonObject? = null) : Jsonable
-data class Timeout(val timeout: Double): Jsonable
+data class Timeout(val timeout: Double) : Jsonable

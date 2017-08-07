@@ -27,6 +27,10 @@ data class GraphSim(val map: Map, val owners: MutableMap<River, Int> = mutableMa
                     current = next
                 }
             }
+            move.option != null -> with(move.option) {
+                val river = River(source, target).sorted()
+                if (owners[river] != EMPTY_COLOR) owners[river] = -punter
+            }
         }
     }
 }

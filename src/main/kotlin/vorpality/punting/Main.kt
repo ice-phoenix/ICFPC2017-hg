@@ -78,7 +78,7 @@ class Arguments(p: ArgParser) {
 
     val gui: Boolean by p.flagging("Enable GUI").default(false)
 
-    val splurging: Boolean by p.flagging("Enable splurge moves").default(true)
+    val splurging: Boolean by p.flagging("Enable splurge moves").default(false)
 }
 
 inline fun <reified T : Jsonable> readJsonable(sin: Reader): T {

@@ -94,7 +94,7 @@ class SpanningTreePunter : AbstractPunter() {
 
     override fun step(moves: List<Move>): Move {
         with(state) {
-            for ((pass, claim, splurge) in moves) {
+            for ((pass, claim, splurge, option) in moves) {
                 if (pass != null) {
                     if (me == pass.punter) credit++
                     continue
@@ -130,6 +130,18 @@ class SpanningTreePunter : AbstractPunter() {
                         }
                     }
                 }
+
+                if (option != null) {
+                    val (edge) = originalGraph
+                            .getEdgesConnecting(option.source, option.target)
+                            .first()
+
+                    optionEdges += edge
+
+                    if (me == option.punter) {
+                        graph.addSimpleEdge(option.source, edge, option.target, false)
+                    }
+                }
             }
 
             if (GlobalSettings.logging) {
@@ -158,6 +170,14 @@ class SpanningTreePunter : AbstractPunter() {
             }
 
             if (minePairs.isEmpty()) {
+
+                // Try to use options
+                val option = tryToConnectSCCs(ourVertices)
+                if (option != null) {
+                    logger.info("Using option for: $option")
+
+                    return OptionMove(me, option.first, option.second)
+                }
 
                 var newPairs = graph
                         .connectedComponents
@@ -300,11 +320,13 @@ class SpanningTreePunter : AbstractPunter() {
                     this@SpanningTreePunter::EmptyEdgePredicate
             )
 
+            logger.info("Credit: $credit")
+
             return if (selectedPaths.isNotEmpty()) {
                 if (credit >= 0) {
 
                     // TODO: move to settings
-                    if (selectedPaths.first().size / 2 > credit) {
+                    if (selectedPaths.first().size / 3 > credit) {
                         return PassMove(me)
                     }
 
@@ -335,6 +357,47 @@ class SpanningTreePunter : AbstractPunter() {
 
                 step(emptyList())
             }
+        }
+    }
+
+    private fun tryToConnectSCCs(
+            ourVertices: IntSet): Pair<Int, Int>? {
+        with(state) {
+            if (!optionsEnabled) return null
+            if (optionEdges.size >= mines.size) return null
+
+            val SCCs = graph
+                    .connectedComponents
+                    .asSequence()
+                    .map { scc -> IntSets.intersection(scc, ourVertices) }
+                    .filterNot { it.isEmpty }
+                    .sortedByDescending { it.size() }
+                    .map { graph.getSubgraphInducedByVertices(it) }
+                    .toList()
+
+            for (i in (0..SCCs.size - 1)) {
+                for (j in (i + 1..SCCs.size - 1)) {
+                    val a = SCCs[i]
+                    val b = SCCs[j]
+
+                    for ((aa) in a.vertices) {
+                        for ((bb) in b.vertices) {
+
+                            val edges = originalGraph.getEdgesConnecting(aa, bb)
+
+                            if (!edges.isEmpty) {
+                                val (edge) = edges.first()
+
+                                if (edge !in optionEdges) {
+                                    return aa to bb
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return null
         }
     }
 

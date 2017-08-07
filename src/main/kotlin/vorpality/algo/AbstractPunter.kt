@@ -1,8 +1,6 @@
 package vorpality.algo
 
 import grph.Grph
-import grph.algo.search.BFSAlgorithm
-import grph.algo.search.GraphSearchListener
 import grph.in_memory.InMemoryGrph
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
@@ -73,7 +71,8 @@ abstract class AbstractPunter : Punter {
                           var originalGraph: Grph = graph,
                           val ownerColoring: MutableMap<Int, Int> = mutableMapOf(),
                           val mineColoring: MutableMap<Int, Int> = mutableMapOf(),
-                          var scoring: Map<Pair<Int, Int>, Int> = mutableMapOf()) : Jsonable {
+                          var scoring: Map<Pair<Int, Int>, Int> = mutableMapOf(),
+                          var optionEdges: Set<Int> = mutableSetOf()) : Jsonable {
 
         constructor(data: SetupData) : this(InMemoryGrph()) {
             with(data.map) {
@@ -112,7 +111,8 @@ abstract class AbstractPunter : Punter {
                     "graph" to GrphJsoner.toJson(graph),
                     "originalGraph" to GrphJsoner.toJson(originalGraph),
                     "mineColoring" to mineColoring.tryToJson(),
-                    "ownerColoring" to ownerColoring.tryToJson()
+                    "ownerColoring" to ownerColoring.tryToJson(),
+                    "optionEdges" to optionEdges.tryToJson()
             )
         }
 
@@ -123,7 +123,8 @@ abstract class AbstractPunter : Punter {
                         graph = GrphJsoner.fromJson(json.get("graph")),
                         originalGraph = GrphJsoner.fromJson(json.get("originalGraph")),
                         mineColoring = json.get("mineColoring").tryFromJsonWithTypeOf { mutableMapOf(1 to 2) },
-                        ownerColoring = json.get("ownerColoring").tryFromJsonWithTypeOf { mutableMapOf(1 to 2) }
+                        ownerColoring = json.get("ownerColoring").tryFromJsonWithTypeOf { mutableMapOf(1 to 2) },
+                        optionEdges = json.get("optionEdges").tryFromJsonWithTypeOf { mutableSetOf(1) }
                 )
             }
 
@@ -132,6 +133,7 @@ abstract class AbstractPunter : Punter {
 
     override var me: Int = -1
     var credit: Int = Int.MIN_VALUE
+    var optionsEnabled: Boolean = false
 
     override var currentState: JsonObject
         get() {
@@ -164,7 +166,13 @@ abstract class AbstractPunter : Punter {
     override fun setup(data: SetupData) {
         me = data.punter
         credit = if (data.settings?.getBoolean("splurges") ?: false) -1 else Int.MIN_VALUE
+        optionsEnabled = data.settings?.getBoolean("options") ?: false
         state = State(data)
+
+        // Disable splurging on small graphs
+        if (state.graph.size / data.punters < 50) {
+            credit = Int.MIN_VALUE
+        }
 
         if (GlobalSettings.logging) {
             logger.info("Graph is: ${state.graph.toGrphText()}")
