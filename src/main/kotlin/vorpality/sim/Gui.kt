@@ -109,14 +109,24 @@ class GraphPanel(val graphSim: GraphSim, val punter: Punter, val punters: Int) :
             g2.stroke = BasicStroke(5.0f)
             val owner = graphSim.owners.getOrDefault(river.sorted(), -1)
             if (owner == punter.me) g2.color = Color.GREEN
-            else if (owner == -punter.me) {
+            else if (owner == -punter.me - 3) {
                 g2.color = Color.GREEN
                 g2.stroke = BasicStroke(
                         5.0f,
                         BasicStroke.CAP_SQUARE,
                         BasicStroke.JOIN_MITER,
-                        1.0f,
-                        floatArrayOf(2.0f),
+                        10.0f,
+                        floatArrayOf(10.0f),
+                        0.0f
+                )
+            } else if(owner < 0) {
+                g2.color = palette.getOrDefault(-owner + 3, Color.BLACK)
+                g2.stroke = BasicStroke(
+                        5.0f,
+                        BasicStroke.CAP_SQUARE,
+                        BasicStroke.JOIN_MITER,
+                        10.0f,
+                        floatArrayOf(10.0f),
                         0.0f
                 )
             } else g2.color = palette.getOrDefault(owner, Color.BLACK)
