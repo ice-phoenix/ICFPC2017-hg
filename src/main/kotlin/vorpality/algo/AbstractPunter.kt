@@ -134,11 +134,17 @@ abstract class AbstractPunter : Punter {
     override var me: Int = -1
     var credit: Int = Int.MIN_VALUE
     var optionsEnabled: Boolean = false
+    var myOptionsCount: Int = 0
 
     override var currentState: JsonObject
         get() {
             logger.info("Storing on")
-            val res = state.toJson().apply { put("me", me).put("credit", credit) }
+            val res = state.toJson().apply {
+                put("me", me)
+                        .put("credit", credit)
+                        .put("optionsEnabled", optionsEnabled)
+                        .put("myOptionsCount", myOptionsCount)
+            }
             logger.info("Storing off")
             return res
         }
@@ -146,6 +152,8 @@ abstract class AbstractPunter : Punter {
             logger.info("Loading on")
             me = value.getInteger("me")
             credit = value.getInteger("credit")
+            optionsEnabled = value.getBoolean("optionsEnabled")
+            myOptionsCount = value.getInteger("myOptionsCount")
             state = value.toJsonable<State>()
             logger.info("Loading off")
         }
@@ -167,6 +175,7 @@ abstract class AbstractPunter : Punter {
         me = data.punter
         credit = if (data.settings?.getBoolean("splurges") ?: false) -1 else Int.MIN_VALUE
         optionsEnabled = data.settings?.getBoolean("options") ?: false
+        myOptionsCount = 0
         state = State(data)
 
         // Disable splurging on small graphs

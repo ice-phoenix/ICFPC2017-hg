@@ -126,7 +126,12 @@ class SpanningTreePunter : AbstractPunter() {
                         }
                     } else {
                         for (edge in edges) {
-                            graph.removeEdge(edge)
+                            if (graph.containsEdge(edge)) {
+                                graph.removeEdge(edge)
+                            } else {
+                                // an option splurge
+                                optionEdges += edge
+                            }
                         }
                     }
                 }
@@ -139,7 +144,9 @@ class SpanningTreePunter : AbstractPunter() {
                     optionEdges += edge
 
                     if (me == option.punter) {
+                        ownerColoring[edge] = me
                         graph.addSimpleEdge(option.source, edge, option.target, false)
+                        myOptionsCount++
                     }
                 }
             }
@@ -364,7 +371,7 @@ class SpanningTreePunter : AbstractPunter() {
             ourVertices: IntSet): Pair<Int, Int>? {
         with(state) {
             if (!optionsEnabled) return null
-            if (optionEdges.size >= mines.size) return null
+            if (myOptionsCount >= mines.size) return null
 
             val SCCs = graph
                     .connectedComponents
