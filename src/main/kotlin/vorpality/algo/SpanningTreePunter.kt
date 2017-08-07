@@ -176,14 +176,24 @@ class SpanningTreePunter : AbstractPunter() {
                 logger.info("Our current score is: $currentScore")
             }
 
+            logger.info("Credit: $credit")
+
             if (minePairs.isEmpty()) {
 
                 // Try to use options
-                val option = tryToConnectSCCs(ourVertices)
+                val option = tryToConnectSCCs(ourVertices, ourEdgesFirstPriority)
                 if (option != null) {
                     logger.info("Using option for: $option")
 
-                    return OptionMove(me, option.first, option.second)
+                    val edge = option.first()
+
+                    val bridge = originalGraph.edgeVertices(edge)
+
+                    if (graph.containsEdge(edge)) {
+                        return ClaimMove(me, bridge.first, bridge.second)
+                    } else {
+                        return OptionMove(me, bridge.first, bridge.second)
+                    }
                 }
 
                 var newPairs = graph
@@ -327,8 +337,6 @@ class SpanningTreePunter : AbstractPunter() {
                     this@SpanningTreePunter::EmptyEdgePredicate
             )
 
-            logger.info("Credit: $credit")
-
             return if (selectedPaths.isNotEmpty()) {
                 if (credit >= 0) {
 
@@ -368,7 +376,8 @@ class SpanningTreePunter : AbstractPunter() {
     }
 
     private fun tryToConnectSCCs(
-            ourVertices: IntSet): Pair<Int, Int>? {
+            ourVertices: IntSet,
+            ourEdgesFirstProperty: NumericalProperty): List<Int>? {
         with(state) {
             if (!optionsEnabled) return null
             if (myOptionsCount >= mines.size) return null
@@ -387,20 +396,38 @@ class SpanningTreePunter : AbstractPunter() {
                     val a = SCCs[i]
                     val b = SCCs[j]
 
-                    for ((aa) in a.vertices) {
-                        for ((bb) in b.vertices) {
+                    val path = originalGraph
+                            .getShortestPath(a.center, b.center, ourEdgesFirstProperty)
+                            .toVertexArray()
 
-                            val edges = originalGraph.getEdgesConnecting(aa, bb)
+                    val allPathEdges = mutableListOf<List<Int>>()
+                    var currentPathEdges = emptyList<Int>()
 
-                            if (!edges.isEmpty) {
-                                val (edge) = edges.first()
+                    var currentVertex = path.first()
+                    for (nextVertex in path.drop(1)) {
+                        val (edge) = originalGraph
+                                .getEdgesConnecting(currentVertex, nextVertex)
+                                .first()
 
-                                if (edge !in optionEdges) {
-                                    return aa to bb
-                                }
-                            }
+                        if (edge in optionEdges) return null
+
+                        if (edge in ownerColoring) {
+                            allPathEdges += currentPathEdges
+                            currentPathEdges = emptyList<Int>()
+                        } else {
+                            currentPathEdges += edge
                         }
+
+                        currentVertex = nextVertex
                     }
+
+                    allPathEdges += currentPathEdges
+
+                    val interestingPathEdges = allPathEdges
+                            .filter { it.isNotEmpty() }
+                            .sortedBy { it.size }
+
+                    return interestingPathEdges.firstOrNull()
                 }
             }
 
