@@ -213,7 +213,7 @@ class SpanningTreePunter : AbstractPunter() {
                         }
                         .filter { (_, p) -> p.first != p.second }
                         .filter { (scc, p) ->
-                            scc.spanningTree
+                            scc//.spanningTree
                                     .getShortestPath(p.first, p.second, ourEdgesFirstPriority)
                                     .isInteresting(
                                             graph,
@@ -247,7 +247,7 @@ class SpanningTreePunter : AbstractPunter() {
                             .filter { (_, p) -> p.first != p.second && p.second != null }
                             .map { it.uncheckedCast<Pair<Grph, Pair<Int, Int>>>() }
                             .filter { (scc, p) ->
-                                scc.spanningTree
+                                scc//.spanningTree
                                         .getShortestPath(p.first, p.second, ourEdgesFirstPriority)
                                         .isInteresting(
                                                 graph,
@@ -294,7 +294,7 @@ class SpanningTreePunter : AbstractPunter() {
 
             val spanningTree = graph
                     .getSubgraphInducedByVertices(scc)
-                    .spanningTree
+                    //.spanningTree
 
             val noShuffle = when (mineColoring[activePath.first] to mineColoring[activePath.second]) {
                 Pair(MINE_COLOR, MINE_COLOR) -> // first build at least one edge near each mine, then proceed
