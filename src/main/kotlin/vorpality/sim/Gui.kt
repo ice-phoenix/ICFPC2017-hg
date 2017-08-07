@@ -8,6 +8,7 @@ import java.awt.RenderingHints
 import java.awt.font.TextAttribute
 import java.awt.geom.AffineTransform
 import java.awt.geom.Ellipse2D
+import java.awt.geom.Point2D
 import java.awt.geom.Rectangle2D
 import java.util.*
 import javax.swing.JFrame
@@ -75,7 +76,7 @@ class GraphPanel(val graphSim: GraphSim, val punter: Punter, val punters: Int) :
             g2.drawString("${punter.currentScore}", 5.0f, height.toFloat() - legendHeight - 20)
         }
 
-        g2.transform(trasform)
+        //g2.transform(trasform)
 
         background = Color.WHITE
 
@@ -95,8 +96,14 @@ class GraphPanel(val graphSim: GraphSim, val punter: Punter, val punters: Int) :
         val xAdjust = width / xSpan
         val yAdjust = (height - legendHeight) / ySpan
 
-        fun adjustX(x: Double) = ((x - minX) * xAdjust).toInt() + (width / 20)
-        fun adjustY(y: Double) = ((y - minY) * yAdjust).toInt() + ((height - legendHeight) / 20)
+        fun adjustX(x: Double): Int =
+                (((x - minX) * xAdjust).toInt() + (width / 20)).let {
+                    trasform?.transform(Point2D.Double(it.toDouble(), 0.0), null)?.x?.toInt() ?: it
+                }
+        fun adjustY(y: Double) =
+                (((y - minY) * yAdjust).toInt() + ((height - legendHeight) / 20)).let {
+                    trasform?.transform(Point2D.Double(0.0, it.toDouble()), null)?.y?.toInt() ?: it
+                }
 
         for (river in map.rivers) {
             g2.stroke = BasicStroke(5.0f)
