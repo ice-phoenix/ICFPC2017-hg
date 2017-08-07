@@ -119,8 +119,8 @@ class GraphPanel(val graphSim: GraphSim, val punter: Punter, val punters: Int) :
                         floatArrayOf(10.0f),
                         0.0f
                 )
-            } else if(owner < 0) {
-                g2.color = palette.getOrDefault(-owner + 3, Color.BLACK)
+            } else if(owner < -1) {
+                g2.color = palette.getOrDefault(-owner - 3, Color.BLACK)
                 g2.stroke = BasicStroke(
                         5.0f,
                         BasicStroke.CAP_SQUARE,
